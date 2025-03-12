@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,24 +5,21 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { 
-  Plus, 
-  Trash2, 
-  MoveDown, 
-  MoveUp,
-  Image as ImageIcon,
-  Save,
-  ArrowLeft
-} from 'lucide-react';
+import { Plus, Trash2, MoveDown, MoveUp, Image as ImageIcon, Save, ArrowLeft } from 'lucide-react';
 import { Section, Question, Option, Quiz } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-const QuizForm = () => {
+interface QuizFormProps {
+  editMode?: boolean;
+}
+
+const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { id } = useParams();
-  const editMode = !!id;
+  const { user } = useAuth();
   
   const generateQuizCode = () => {
     const randNum = Math.floor(1000 + Math.random() * 9000);
@@ -51,7 +47,6 @@ const QuizForm = () => {
       if (!editMode || !id) return;
 
       try {
-        // Fetch quiz data
         const { data: quizData, error: quizError } = await supabase
           .from('quizzes')
           .select('*')
@@ -60,7 +55,6 @@ const QuizForm = () => {
 
         if (quizError) throw quizError;
 
-        // Fetch sections
         const { data: sectionsData, error: sectionsError } = await supabase
           .from('sections')
           .select('*')
@@ -71,7 +65,6 @@ const QuizForm = () => {
 
         const sections: Section[] = [];
 
-        // For each section, fetch its questions
         for (const section of sectionsData) {
           const { data: questionsData, error: questionsError } = await supabase
             .from('questions')
@@ -83,7 +76,6 @@ const QuizForm = () => {
 
           const questions: Question[] = [];
 
-          // For each question, fetch its options
           for (const question of questionsData) {
             const { data: optionsData, error: optionsError } = await supabase
               .from('options')
@@ -276,7 +268,10 @@ const QuizForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate form
+    if (!user?.id) {
+      throw new Error("User not authenticated");
+    }
+
     if (!quizData.title.trim()) {
       toast({
         title: "Error",
@@ -295,7 +290,6 @@ const QuizForm = () => {
       return;
     }
 
-    // Validate questions and options
     for (const section of quizData.sections) {
       for (const question of section.questions) {
         if (!question.text.trim()) {
@@ -331,7 +325,6 @@ const QuizForm = () => {
       setLoading(true);
 
       if (editMode && id) {
-        // Update quiz
         const { error: quizError } = await supabase
           .from('quizzes')
           .update({
@@ -346,7 +339,6 @@ const QuizForm = () => {
 
         if (quizError) throw quizError;
 
-        // Delete all sections, questions, and options for this quiz (cascading delete)
         const { error: deleteSectionsError } = await supabase
           .from('sections')
           .delete()
@@ -354,11 +346,9 @@ const QuizForm = () => {
 
         if (deleteSectionsError) throw deleteSectionsError;
 
-        // Create all sections, questions, and options again
         for (let i = 0; i < quizData.sections.length; i++) {
           const section = quizData.sections[i];
           
-          // Insert section
           const { data: newSection, error: sectionError } = await supabase
             .from('sections')
             .insert({
@@ -372,11 +362,9 @@ const QuizForm = () => {
 
           if (sectionError) throw sectionError;
 
-          // Insert questions for this section
           for (let j = 0; j < section.questions.length; j++) {
             const question = section.questions[j];
             
-            // Insert question
             const { data: newQuestion, error: questionError } = await supabase
               .from('questions')
               .insert({
@@ -393,7 +381,6 @@ const QuizForm = () => {
 
             if (questionError) throw questionError;
 
-            // Insert options for this question
             for (let k = 0; k < question.options.length; k++) {
               const option = question.options[k];
               
@@ -416,7 +403,6 @@ const QuizForm = () => {
           description: "Quiz updated successfully"
         });
       } else {
-        // Create new quiz
         const { data: newQuiz, error: quizError } = await supabase
           .from('quizzes')
           .insert({
@@ -425,18 +411,17 @@ const QuizForm = () => {
             instructions: quizData.instructions,
             duration: quizData.duration,
             start_date_time: quizData.startDateTime,
-            end_date_time: quizData.endDateTime
+            end_date_time: quizData.endDateTime,
+            created_by: user.id
           })
           .select()
           .single();
 
         if (quizError) throw quizError;
 
-        // Create all sections, questions, and options
         for (let i = 0; i < quizData.sections.length; i++) {
           const section = quizData.sections[i];
           
-          // Insert section
           const { data: newSection, error: sectionError } = await supabase
             .from('sections')
             .insert({
@@ -450,11 +435,9 @@ const QuizForm = () => {
 
           if (sectionError) throw sectionError;
 
-          // Insert questions for this section
           for (let j = 0; j < section.questions.length; j++) {
             const question = section.questions[j];
             
-            // Insert question
             const { data: newQuestion, error: questionError } = await supabase
               .from('questions')
               .insert({
@@ -471,7 +454,6 @@ const QuizForm = () => {
 
             if (questionError) throw questionError;
 
-            // Insert options for this question
             for (let k = 0; k < question.options.length; k++) {
               const option = question.options[k];
               
@@ -542,7 +524,6 @@ const QuizForm = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Quiz Details Card */}
         <Card>
           <CardHeader>
             <CardTitle>Quiz Details</CardTitle>
@@ -572,7 +553,7 @@ const QuizForm = () => {
                   onChange={handleQuizChange}
                   placeholder="arena-xxxx"
                   required
-                  disabled={editMode} // Don't allow editing the code in edit mode
+                  disabled={editMode}
                 />
               </div>
             </div>
@@ -628,7 +609,6 @@ const QuizForm = () => {
           </CardContent>
         </Card>
 
-        {/* Sections */}
         {quizData.sections.map((section, sectionIndex) => (
           <Card key={section.id} className="border-l-4 border-l-arena-red">
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -656,7 +636,6 @@ const QuizForm = () => {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      // Move section up
                       const newSections = [...quizData.sections];
                       [newSections[sectionIndex], newSections[sectionIndex - 1]] = 
                         [newSections[sectionIndex - 1], newSections[sectionIndex]];
@@ -671,7 +650,6 @@ const QuizForm = () => {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      // Move section down
                       const newSections = [...quizData.sections];
                       [newSections[sectionIndex], newSections[sectionIndex + 1]] = 
                         [newSections[sectionIndex + 1], newSections[sectionIndex]];
@@ -705,7 +683,6 @@ const QuizForm = () => {
                 />
               </div>
 
-              {/* Questions */}
               {section.questions.map((question, qIndex) => (
                 <Card key={question.id} className="border border-gray-200 shadow-sm">
                   <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
@@ -745,7 +722,6 @@ const QuizForm = () => {
                         variant="outline" 
                         className="text-sm"
                         onClick={() => {
-                          // Handle image upload
                           toast({
                             title: "Not implemented",
                             description: "Image upload would be implemented in a real app"
