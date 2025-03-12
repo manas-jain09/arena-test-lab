@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +19,7 @@ import QuizzesList from "./pages/admin/QuizzesList";
 import QuizForm from "./pages/admin/QuizForm";
 import ResultsList from "./pages/admin/ResultsList";
 import Settings from "./pages/admin/Settings";
+import QuizView from "./pages/admin/QuizView";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <QuizForm />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/quizzes/:id" 
+              element={
+                <ProtectedRoute>
+                  <QuizView />
                 </ProtectedRoute>
               } 
             />

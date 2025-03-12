@@ -9,6 +9,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+// Add interfaces for our data types
+interface QuizResultItem {
+  name: string;
+  avg: number;
+  participants: number;
+  totalScore: number;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -20,7 +28,7 @@ const Dashboard = () => {
     { name: 'Upcoming', value: 0, color: '#3b82f6' },
     { name: 'Completed', value: 0, color: '#10b981' },
   ]);
-  const [recentResults, setRecentResults] = useState([]);
+  const [recentResults, setRecentResults] = useState<QuizResultItem[]>([]);
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalSubmissions, setTotalSubmissions] = useState(0);
@@ -76,41 +84,46 @@ const Dashboard = () => {
         if (resultsError) throw resultsError;
 
         // Group results by quiz and calculate average scores
-        const quizResultsMap = {};
-        results.forEach(result => {
-          const quizTitle = result.quizzes?.title || 'Unknown Quiz';
-          
-          if (!quizResultsMap[quizTitle]) {
-            quizResultsMap[quizTitle] = {
-              name: quizTitle,
-              avg: 0,
-              participants: 0,
-              totalScore: 0
-            };
-          }
-          
-          quizResultsMap[quizTitle].participants++;
-          quizResultsMap[quizTitle].totalScore += (result.marks_scored / result.total_marks) * 100;
-        });
+        const quizResultsMap: Record<string, QuizResultItem> = {};
+        
+        if (results && results.length > 0) {
+          results.forEach(result => {
+            const quizTitle = result.quizzes?.title || 'Unknown Quiz';
+            
+            if (!quizResultsMap[quizTitle]) {
+              quizResultsMap[quizTitle] = {
+                name: quizTitle,
+                avg: 0,
+                participants: 0,
+                totalScore: 0
+              };
+            }
+            
+            quizResultsMap[quizTitle].participants++;
+            quizResultsMap[quizTitle].totalScore += (result.marks_scored / result.total_marks) * 100;
+          });
 
-        // Calculate averages
-        const recentQuizResults = Object.values(quizResultsMap).map(item => ({
-          name: item.name,
-          avg: Math.round(item.totalScore / item.participants),
-          participants: item.participants
-        })).slice(0, 4); // Limit to 4 most recent quizzes
+          // Calculate averages
+          const recentQuizResults = Object.values(quizResultsMap).map(item => ({
+            name: item.name,
+            avg: Math.round(item.totalScore / item.participants),
+            participants: item.participants
+          })).slice(0, 4); // Limit to 4 most recent quizzes
 
-        setRecentResults(recentQuizResults);
+          setRecentResults(recentQuizResults);
+        } else {
+          setRecentResults([]);
+        }
 
         // Count unique students
-        const { data: uniqueStudents, error: studentsError } = await supabase
+        const { count: studentsCount, error: studentsError } = await supabase
           .from('student_results')
           .select('email', { count: 'exact', head: true })
           .order('email');
 
         if (studentsError) throw studentsError;
         
-        setTotalStudents(uniqueStudents.length);
+        setTotalStudents(studentsCount || 0);
         
         // Count total submissions
         const { count, error: submissionsError } = await supabase
