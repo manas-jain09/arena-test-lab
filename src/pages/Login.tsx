@@ -1,59 +1,67 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
-  const { toast } = useToast();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  React.useEffect(() => {
+    if (user) {
+      navigate('/admin/dashboard');
+    }
+  }, [user, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      await login(email, password);
+    
+    if (!email || !password) {
       toast({
-        title: 'Login successful',
-        description: 'Welcome to ArenaHQ!',
+        title: "Error",
+        description: "Please enter both email and password",
+        variant: "destructive"
       });
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      await login(email, password);
       navigate('/admin/dashboard');
     } catch (error) {
-      toast({
-        title: 'Login failed',
-        description: 'Invalid email or password',
-        variant: 'destructive',
-      });
+      console.error('Login error:', error);
+      // Error is handled in the login function
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-arena-red">ArenaHQ</h1>
-          <p className="text-gray-600 mt-2">Quiz Management Platform</p>
+          <p className="text-gray-600 mt-2">Online assessment platform</p>
         </div>
-
+        
         <Card>
           <CardHeader>
-            <CardTitle>Admin Login</CardTitle>
+            <CardTitle className="text-2xl">Admin Login</CardTitle>
             <CardDescription>
               Enter your credentials to access the admin panel
             </CardDescription>
           </CardHeader>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -71,6 +79,7 @@ const Login = () => {
                 <Input
                   id="password"
                   type="password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -78,8 +87,8 @@ const Login = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button
-                type="submit"
+              <Button 
+                type="submit" 
                 className="w-full bg-arena-red hover:bg-arena-darkRed"
                 disabled={isLoading}
               >

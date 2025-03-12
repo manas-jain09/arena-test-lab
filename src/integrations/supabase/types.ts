@@ -9,7 +9,197 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      options: {
+        Row: {
+          display_order: number
+          id: string
+          is_correct: boolean
+          question_id: string
+          text: string
+        }
+        Insert: {
+          display_order: number
+          id?: string
+          is_correct?: boolean
+          question_id: string
+          text: string
+        }
+        Update: {
+          display_order?: number
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          display_order: number
+          id: string
+          image_url: string | null
+          marks_for_correct: number
+          marks_for_unattempted: number
+          marks_for_wrong: number
+          section_id: string
+          text: string
+        }
+        Insert: {
+          display_order: number
+          id?: string
+          image_url?: string | null
+          marks_for_correct?: number
+          marks_for_unattempted?: number
+          marks_for_wrong?: number
+          section_id: string
+          text: string
+        }
+        Update: {
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          marks_for_correct?: number
+          marks_for_unattempted?: number
+          marks_for_wrong?: number
+          section_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          duration: number
+          end_date_time: string
+          id: string
+          instructions: string | null
+          start_date_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          duration: number
+          end_date_time: string
+          id?: string
+          instructions?: string | null
+          start_date_time: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          duration?: number
+          end_date_time?: string
+          id?: string
+          instructions?: string | null
+          start_date_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sections: {
+        Row: {
+          display_order: number
+          id: string
+          instructions: string | null
+          quiz_id: string
+          title: string
+        }
+        Insert: {
+          display_order: number
+          id?: string
+          instructions?: string | null
+          quiz_id: string
+          title: string
+        }
+        Update: {
+          display_order?: number
+          id?: string
+          instructions?: string | null
+          quiz_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sections_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_results: {
+        Row: {
+          cheating_status: string
+          division: string
+          email: string
+          id: string
+          marks_scored: number
+          name: string
+          prn: string
+          quiz_id: string
+          submitted_at: string
+          total_marks: number
+        }
+        Insert: {
+          cheating_status?: string
+          division: string
+          email: string
+          id?: string
+          marks_scored: number
+          name: string
+          prn: string
+          quiz_id: string
+          submitted_at?: string
+          total_marks: number
+        }
+        Update: {
+          cheating_status?: string
+          division?: string
+          email?: string
+          id?: string
+          marks_scored?: number
+          name?: string
+          prn?: string
+          quiz_id?: string
+          submitted_at?: string
+          total_marks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_results_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

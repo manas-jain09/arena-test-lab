@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,53 +17,68 @@ import {
   Calendar
 } from 'lucide-react';
 import { Quiz } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const QuizzesList = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from the backend
-  const [quizzes] = useState<Quiz[]>([
-    {
-      id: '1',
-      title: 'Data Structures Mid-term',
-      code: 'arena-7384',
-      instructions: 'Answer all questions. Each question carries equal marks.',
-      duration: 60,
-      startDateTime: '2023-06-15T09:00:00',
-      endDateTime: '2023-06-15T18:00:00',
-      sections: [],
-      createdAt: '2023-06-01T10:30:00',
-      updatedAt: '2023-06-02T14:20:00',
-      createdBy: '1'
-    },
-    {
-      id: '2',
-      title: 'Advanced Algorithms Final',
-      code: 'arena-2914',
-      instructions: 'Complete all sections within the time limit.',
-      duration: 120,
-      startDateTime: '2023-06-20T10:00:00',
-      endDateTime: '2023-06-20T17:00:00',
-      sections: [],
-      createdAt: '2023-06-05T08:15:00',
-      updatedAt: '2023-06-05T16:45:00',
-      createdBy: '1'
-    },
-    {
-      id: '3',
-      title: 'Database Systems Quiz',
-      code: 'arena-4562',
-      instructions: 'Focus on SQL and normalization concepts.',
-      duration: 45,
-      startDateTime: '2023-06-10T14:00:00',
-      endDateTime: '2023-06-10T17:00:00',
-      sections: [],
-      createdAt: '2023-06-03T09:20:00',
-      updatedAt: '2023-06-03T11:30:00',
-      createdBy: '1'
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quizzes')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching quizzes:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load quizzes. Please try again.',
+            variant: 'destructive'
+          });
+          return;
+        }
+
+        // Transform the data to match our Quiz type
+        const transformedQuizzes: Quiz[] = data.map(quiz => ({
+          id: quiz.id,
+          title: quiz.title,
+          code: quiz.code,
+          instructions: quiz.instructions || '',
+          duration: quiz.duration,
+          startDateTime: quiz.start_date_time,
+          endDateTime: quiz.end_date_time,
+          sections: [],
+          createdAt: quiz.created_at,
+          updatedAt: quiz.updated_at,
+          createdBy: quiz.created_by
+        }));
+
+        setQuizzes(transformedQuizzes);
+      } catch (error) {
+        console.error('Error in fetchQuizzes:', error);
+        toast({
+          title: 'Error',
+          description: 'Something went wrong while loading quizzes.',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchQuizzes();
     }
-  ]);
+  }, [user, toast]);
 
   const filteredQuizzes = quizzes.filter(quiz => 
     quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -97,8 +112,40 @@ const QuizzesList = () => {
 
   const copyQuizCode = (code: string) => {
     navigator.clipboard.writeText(code);
-    // In a real app, we would show a toast here
-    alert(`Quiz code ${code} copied to clipboard!`);
+    toast({
+      title: 'Success',
+      description: `Quiz code ${code} copied to clipboard!`
+    });
+  };
+
+  const handleDeleteQuiz = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+      try {
+        const { error } = await supabase
+          .from('quizzes')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          throw error;
+        }
+
+        toast({
+          title: 'Success',
+          description: 'Quiz deleted successfully!'
+        });
+
+        // Remove the deleted quiz from state
+        setQuizzes(quizzes.filter(quiz => quiz.id !== id));
+      } catch (error) {
+        console.error('Error deleting quiz:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete quiz. Please try again.',
+          variant: 'destructive'
+        });
+      }
+    }
   };
 
   return (
@@ -126,84 +173,91 @@ const QuizzesList = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredQuizzes.length > 0 ? (
-          filteredQuizzes.map((quiz) => {
-            const { status, color } = getQuizStatus(quiz);
-            
-            return (
-              <Card key={quiz.id} className="overflow-hidden">
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{quiz.title}</CardTitle>
-                    <Badge className={`${color} hover:${color}`}>{status}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-2">
-                  <div className="flex items-center mb-2 text-sm text-gray-500">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>{quiz.duration} minutes</span>
-                  </div>
-                  
-                  <div className="flex items-center mb-2 text-sm text-gray-500">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    <span>{formatDate(quiz.startDateTime)}</span>
-                  </div>
-                  
-                  <div className="flex items-center mb-4 justify-between">
-                    <div className="flex items-center">
-                      <span className="font-medium mr-2">Code:</span>
-                      <span className="text-arena-red font-bold">{quiz.code}</span>
+      {loading ? (
+        <div className="flex justify-center items-center py-10">
+          <p className="text-gray-500">Loading quizzes...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredQuizzes.length > 0 ? (
+            filteredQuizzes.map((quiz) => {
+              const { status, color } = getQuizStatus(quiz);
+              
+              return (
+                <Card key={quiz.id} className="overflow-hidden">
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{quiz.title}</CardTitle>
+                      <Badge className={`${color} hover:${color}`}>{status}</Badge>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => copyQuizCode(quiz.code)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate(`/admin/quizzes/${quiz.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" /> View
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate(`/admin/quizzes/${quiz.id}/edit`)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" /> Edit
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate(`/admin/results?quizId=${quiz.id}`)}
-                    >
-                      <FileText className="h-4 w-4 mr-1" /> Results
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" /> Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        ) : (
-          <div className="col-span-full text-center py-10">
-            <p className="text-gray-500">No quizzes found. Create your first quiz!</p>
-          </div>
-        )}
-      </div>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2">
+                    <div className="flex items-center mb-2 text-sm text-gray-500">
+                      <Clock className="h-4 w-4 mr-1" />
+                      <span>{quiz.duration} minutes</span>
+                    </div>
+                    
+                    <div className="flex items-center mb-2 text-sm text-gray-500">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      <span>{formatDate(quiz.startDateTime)}</span>
+                    </div>
+                    
+                    <div className="flex items-center mb-4 justify-between">
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">Code:</span>
+                        <span className="text-arena-red font-bold">{quiz.code}</span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => copyQuizCode(quiz.code)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/quizzes/${quiz.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" /> View
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/quizzes/${quiz.id}/edit`)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" /> Edit
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/results?quizId=${quiz.id}`)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" /> Results
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => handleDeleteQuiz(quiz.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Delete
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <div className="col-span-full text-center py-10">
+              <p className="text-gray-500">No quizzes found. Create your first quiz!</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,21 +17,20 @@ import {
 } from 'lucide-react';
 import { Section, Question, Option, Quiz } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-interface QuizFormProps {
-  editMode?: boolean;
-  quizId?: string;
-}
-
-const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
+const QuizForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-
+  const { id } = useParams();
+  const editMode = !!id;
+  
   const generateQuizCode = () => {
     const randNum = Math.floor(1000 + Math.random() * 9000);
     return `arena-${randNum}`;
   };
 
+  const [loading, setLoading] = useState(editMode);
   const [quizData, setQuizData] = useState<Omit<Quiz, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>>({
     title: '',
     code: generateQuizCode(),
@@ -46,6 +45,103 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
       questions: []
     }]
   });
+
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      if (!editMode || !id) return;
+
+      try {
+        // Fetch quiz data
+        const { data: quizData, error: quizError } = await supabase
+          .from('quizzes')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (quizError) throw quizError;
+
+        // Fetch sections
+        const { data: sectionsData, error: sectionsError } = await supabase
+          .from('sections')
+          .select('*')
+          .eq('quiz_id', id)
+          .order('display_order', { ascending: true });
+
+        if (sectionsError) throw sectionsError;
+
+        const sections: Section[] = [];
+
+        // For each section, fetch its questions
+        for (const section of sectionsData) {
+          const { data: questionsData, error: questionsError } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('section_id', section.id)
+            .order('display_order', { ascending: true });
+
+          if (questionsError) throw questionsError;
+
+          const questions: Question[] = [];
+
+          // For each question, fetch its options
+          for (const question of questionsData) {
+            const { data: optionsData, error: optionsError } = await supabase
+              .from('options')
+              .select('*')
+              .eq('question_id', question.id)
+              .order('display_order', { ascending: true });
+
+            if (optionsError) throw optionsError;
+
+            const options: Option[] = optionsData.map(option => ({
+              id: option.id,
+              text: option.text,
+              isCorrect: option.is_correct
+            }));
+
+            questions.push({
+              id: question.id,
+              text: question.text,
+              imageUrl: question.image_url,
+              options,
+              marksForCorrect: question.marks_for_correct,
+              marksForWrong: question.marks_for_wrong,
+              marksForUnattempted: question.marks_for_unattempted
+            });
+          }
+
+          sections.push({
+            id: section.id,
+            title: section.title,
+            instructions: section.instructions || '',
+            questions
+          });
+        }
+
+        setQuizData({
+          title: quizData.title,
+          code: quizData.code,
+          instructions: quizData.instructions || '',
+          duration: quizData.duration,
+          startDateTime: new Date(quizData.start_date_time).toISOString().slice(0, 16),
+          endDateTime: new Date(quizData.end_date_time).toISOString().slice(0, 16),
+          sections
+        });
+      } catch (error) {
+        console.error('Error fetching quiz data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load quiz data. Please try again.',
+          variant: 'destructive'
+        });
+        navigate('/admin/quizzes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuiz();
+  }, [id, editMode, navigate, toast]);
 
   const handleQuizChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -87,10 +183,10 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
       id: Date.now().toString(),
       text: '',
       options: [
-        { id: '1', text: '', isCorrect: true },
-        { id: '2', text: '', isCorrect: false },
-        { id: '3', text: '', isCorrect: false },
-        { id: '4', text: '', isCorrect: false }
+        { id: `${Date.now()}-1`, text: '', isCorrect: true },
+        { id: `${Date.now()}-2`, text: '', isCorrect: false },
+        { id: `${Date.now()}-3`, text: '', isCorrect: false },
+        { id: `${Date.now()}-4`, text: '', isCorrect: false }
       ],
       marksForCorrect: 1,
       marksForWrong: 0,
@@ -177,7 +273,7 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
@@ -199,16 +295,226 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
       return;
     }
 
-    // In a real app, this would be a call to the backend
-    toast({
-      title: "Success",
-      description: editMode 
-        ? "Quiz updated successfully" 
-        : "Quiz created successfully"
-    });
-    
-    navigate('/admin/quizzes');
+    // Validate questions and options
+    for (const section of quizData.sections) {
+      for (const question of section.questions) {
+        if (!question.text.trim()) {
+          toast({
+            title: "Error",
+            description: `Question text is required in section "${section.title}"`,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (question.options.some(option => !option.text.trim())) {
+          toast({
+            title: "Error",
+            description: `All options must have text in section "${section.title}"`,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (!question.options.some(option => option.isCorrect)) {
+          toast({
+            title: "Error",
+            description: `At least one option must be marked as correct in section "${section.title}"`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+    }
+
+    try {
+      setLoading(true);
+
+      if (editMode && id) {
+        // Update quiz
+        const { error: quizError } = await supabase
+          .from('quizzes')
+          .update({
+            title: quizData.title,
+            instructions: quizData.instructions,
+            duration: quizData.duration,
+            start_date_time: quizData.startDateTime,
+            end_date_time: quizData.endDateTime,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+
+        if (quizError) throw quizError;
+
+        // Delete all sections, questions, and options for this quiz (cascading delete)
+        const { error: deleteSectionsError } = await supabase
+          .from('sections')
+          .delete()
+          .eq('quiz_id', id);
+
+        if (deleteSectionsError) throw deleteSectionsError;
+
+        // Create all sections, questions, and options again
+        for (let i = 0; i < quizData.sections.length; i++) {
+          const section = quizData.sections[i];
+          
+          // Insert section
+          const { data: newSection, error: sectionError } = await supabase
+            .from('sections')
+            .insert({
+              quiz_id: id,
+              title: section.title,
+              instructions: section.instructions,
+              display_order: i
+            })
+            .select()
+            .single();
+
+          if (sectionError) throw sectionError;
+
+          // Insert questions for this section
+          for (let j = 0; j < section.questions.length; j++) {
+            const question = section.questions[j];
+            
+            // Insert question
+            const { data: newQuestion, error: questionError } = await supabase
+              .from('questions')
+              .insert({
+                section_id: newSection.id,
+                text: question.text,
+                image_url: question.imageUrl,
+                marks_for_correct: question.marksForCorrect,
+                marks_for_wrong: question.marksForWrong,
+                marks_for_unattempted: question.marksForUnattempted,
+                display_order: j
+              })
+              .select()
+              .single();
+
+            if (questionError) throw questionError;
+
+            // Insert options for this question
+            for (let k = 0; k < question.options.length; k++) {
+              const option = question.options[k];
+              
+              const { error: optionError } = await supabase
+                .from('options')
+                .insert({
+                  question_id: newQuestion.id,
+                  text: option.text,
+                  is_correct: option.isCorrect,
+                  display_order: k
+                });
+
+              if (optionError) throw optionError;
+            }
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Quiz updated successfully"
+        });
+      } else {
+        // Create new quiz
+        const { data: newQuiz, error: quizError } = await supabase
+          .from('quizzes')
+          .insert({
+            title: quizData.title,
+            code: quizData.code,
+            instructions: quizData.instructions,
+            duration: quizData.duration,
+            start_date_time: quizData.startDateTime,
+            end_date_time: quizData.endDateTime
+          })
+          .select()
+          .single();
+
+        if (quizError) throw quizError;
+
+        // Create all sections, questions, and options
+        for (let i = 0; i < quizData.sections.length; i++) {
+          const section = quizData.sections[i];
+          
+          // Insert section
+          const { data: newSection, error: sectionError } = await supabase
+            .from('sections')
+            .insert({
+              quiz_id: newQuiz.id,
+              title: section.title,
+              instructions: section.instructions,
+              display_order: i
+            })
+            .select()
+            .single();
+
+          if (sectionError) throw sectionError;
+
+          // Insert questions for this section
+          for (let j = 0; j < section.questions.length; j++) {
+            const question = section.questions[j];
+            
+            // Insert question
+            const { data: newQuestion, error: questionError } = await supabase
+              .from('questions')
+              .insert({
+                section_id: newSection.id,
+                text: question.text,
+                image_url: question.imageUrl,
+                marks_for_correct: question.marksForCorrect,
+                marks_for_wrong: question.marksForWrong,
+                marks_for_unattempted: question.marksForUnattempted,
+                display_order: j
+              })
+              .select()
+              .single();
+
+            if (questionError) throw questionError;
+
+            // Insert options for this question
+            for (let k = 0; k < question.options.length; k++) {
+              const option = question.options[k];
+              
+              const { error: optionError } = await supabase
+                .from('options')
+                .insert({
+                  question_id: newQuestion.id,
+                  text: option.text,
+                  is_correct: option.isCorrect,
+                  display_order: k
+                });
+
+              if (optionError) throw optionError;
+            }
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Quiz created successfully"
+        });
+      }
+      
+      navigate('/admin/quizzes');
+    } catch (error) {
+      console.error('Error saving quiz:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save quiz. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <p className="text-gray-500">Loading quiz data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -266,7 +572,7 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
                   onChange={handleQuizChange}
                   placeholder="arena-xxxx"
                   required
-                  disabled
+                  disabled={editMode} // Don't allow editing the code in edit mode
                 />
               </div>
             </div>
@@ -440,7 +746,10 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode = false, quizId }) => {
                         className="text-sm"
                         onClick={() => {
                           // Handle image upload
-                          alert('Image upload would be implemented in a real app');
+                          toast({
+                            title: "Not implemented",
+                            description: "Image upload would be implemented in a real app"
+                          });
                         }}
                       >
                         <ImageIcon className="h-4 w-4 mr-1" /> Add Image
