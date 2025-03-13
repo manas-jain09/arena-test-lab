@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from "@/components/ProtectedRoute";
-import AdminLayout from "@/components/layouts/AdminLayout";
 
 // Pages
 import Index from "./pages/Index";
@@ -42,9 +41,7 @@ const App = () => (
               path="/admin/dashboard" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <Dashboard />
-                  </AdminLayout>
+                  <Dashboard />
                 </ProtectedRoute>
               } 
             />
@@ -52,9 +49,7 @@ const App = () => (
               path="/admin/quizzes" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <QuizzesList />
-                  </AdminLayout>
+                  <QuizzesList />
                 </ProtectedRoute>
               } 
             />
@@ -62,9 +57,7 @@ const App = () => (
               path="/admin/quizzes/new" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <QuizForm />
-                  </AdminLayout>
+                  <QuizForm />
                 </ProtectedRoute>
               } 
             />
@@ -72,9 +65,7 @@ const App = () => (
               path="/admin/quizzes/:id" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <QuizView />
-                  </AdminLayout>
+                  <QuizView />
                 </ProtectedRoute>
               } 
             />
@@ -82,9 +73,7 @@ const App = () => (
               path="/admin/quizzes/:id/edit" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <QuizForm editMode={true} />
-                  </AdminLayout>
+                  <QuizForm editMode />
                 </ProtectedRoute>
               } 
             />
@@ -92,9 +81,7 @@ const App = () => (
               path="/admin/quizzes/:id/results" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <ResultsList />
-                  </AdminLayout>
+                  <ResultsList />
                 </ProtectedRoute>
               } 
             />
@@ -102,9 +89,7 @@ const App = () => (
               path="/admin/settings" 
               element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <Settings />
-                  </AdminLayout>
+                  <Settings />
                 </ProtectedRoute>
               } 
             />
