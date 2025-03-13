@@ -73,7 +73,7 @@ const App = () => (
               path="/admin/quizzes/:id/edit" 
               element={
                 <ProtectedRoute>
-                  <QuizForm editMode />
+                  <QuizForm editMode={true} />
                 </ProtectedRoute>
               } 
             />
