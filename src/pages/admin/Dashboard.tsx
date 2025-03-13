@@ -145,13 +145,13 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+{/*       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Quiz Performance</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
-          <Card>
+{/*           <Card>
             <CardHeader>
               <CardTitle>Recent Quiz Performance</CardTitle>
             </CardHeader>
@@ -248,7 +248,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </Tabs> */}
     </div>
   );
 };
