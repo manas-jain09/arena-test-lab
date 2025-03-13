@@ -26,7 +26,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
     { name: 'Quizzes', path: '/admin/quizzes', icon: <ListChecks className="h-5 w-5" /> },
     { name: 'Results', path: '/admin/results', icon: <FileText className="h-5 w-5" /> },
-    { name: 'Settings', path: '/admin/settings', icon: <Settings className="h-5 w-5" /> },
+    //{ name: 'Settings', path: '/admin/settings', icon: <Settings className="h-5 w-5" /> },
   ];
 
   const isActive = (path: string) => {
