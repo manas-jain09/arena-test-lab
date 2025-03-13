@@ -103,12 +103,11 @@ const Dashboard = () => {
             quizResultsMap[quizTitle].totalScore += (result.marks_scored / result.total_marks) * 100;
           });
 
-          // Calculate averages and map to QuizResultItem array
+          // Calculate averages
           const recentQuizResults = Object.values(quizResultsMap).map(item => ({
             name: item.name,
             avg: Math.round(item.totalScore / item.participants),
-            participants: item.participants,
-            totalScore: item.totalScore
+            participants: item.participants
           })).slice(0, 4); // Limit to 4 most recent quizzes
 
           setRecentResults(recentQuizResults);

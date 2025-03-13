@@ -78,7 +78,7 @@ const App = () => (
               } 
             />
             <Route 
-              path="/admin/quizzes/:id/results" 
+              path="/admin/results" 
               element={
                 <ProtectedRoute>
                   <ResultsList />
