@@ -10,6 +10,7 @@ import { Section, Question, Option, Quiz } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import ImageUploader from '@/components/ImageUploader';
 
 interface QuizFormProps {
   editMode?: boolean;
