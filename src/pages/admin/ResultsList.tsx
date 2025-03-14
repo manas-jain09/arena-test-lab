@@ -110,8 +110,17 @@ const ResultsList = () => {
     });
   };
 
-  // Generate PDF report
+  // Generate and download PDF report
   const handleExportPdf = async () => {
+    if (!selectedQuiz) {
+      toast({
+        title: 'Error',
+        description: 'Please select a quiz before exporting results.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     try {
       setIsGeneratingPdf(true);
       toast({
@@ -120,25 +129,30 @@ const ResultsList = () => {
       });
 
       // Call the Supabase function to generate PDF
-      const { data, error } = await supabase.rpc('generate_quiz_results_pdf', {
-        quiz_id: selectedQuiz
+      const { data, error } = await supabase.functions.invoke('generate-quiz-pdf', {
+        body: { quizId: selectedQuiz }
       });
 
       if (error) {
         throw error;
       }
 
-      // Simulate PDF download (in real implementation, this would be a real PDF)
-      setTimeout(() => {
-        toast({
-          title: 'PDF Generated',
-          description: 'Your report has been generated successfully.',
-        });
+      if (data && data.pdfUrl) {
+        // Create a link element to trigger the download
+        const downloadLink = document.createElement('a');
+        downloadLink.href = data.pdfUrl;
+        downloadLink.download = `quiz-results-${selectedQuiz}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
         
-        // In a real implementation, we would redirect to the download URL
-        // For now, we'll just show a success message
-        setIsGeneratingPdf(false);
-      }, 1500);
+        toast({
+          title: 'PDF Downloaded',
+          description: 'Your report has been generated and downloaded successfully.',
+        });
+      } else {
+        throw new Error('No PDF URL returned from the server');
+      }
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast({
@@ -146,6 +160,7 @@ const ResultsList = () => {
         description: 'Failed to generate PDF report. Please try again.',
         variant: 'destructive'
       });
+    } finally {
       setIsGeneratingPdf(false);
     }
   };
