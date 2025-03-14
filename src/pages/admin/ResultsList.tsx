@@ -229,16 +229,14 @@ const ResultsList = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                    <Input
-                      type="search"
-                      placeholder="Search by name, PRN or email..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-full"
-                    />
-                  </div>
+                  <Input
+                    type="search"
+                    placeholder="Search by name, PRN or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                    icon={<Search className="h-4 w-4" />}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Select value={selectedQuiz || ""} onValueChange={setSelectedQuiz}>
