@@ -123,7 +123,7 @@ const Dashboard = () => {
             <p className="text-xs text-gray-500">Across all quizzes</p>
           </CardContent>
         </Card>
-{/*         <Card>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Average Score</CardTitle>
             <Award className="h-4 w-4 text-gray-500" />
@@ -142,16 +142,16 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">{getStudentsWithFullMarks()}</div>
             <p className="text-xs text-gray-500">Students with 100% score</p>
           </CardContent>
-        </Card> */}
+        </Card>
       </div>
 
-{/*       <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Quiz Performance</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
-{/*           <Card>
+          <Card>
             <CardHeader>
               <CardTitle>Recent Quiz Performance</CardTitle>
             </CardHeader>
@@ -248,7 +248,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs> */}
+      </Tabs>
     </div>
   );
 };
