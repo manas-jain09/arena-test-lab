@@ -265,6 +265,24 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
     }));
   };
 
+  const handleQuestionImageChange = (sectionId: string, questionId: string, imageUrl: string | undefined) => {
+    setQuizData(prev => ({
+      ...prev,
+      sections: prev.sections.map(section => 
+        section.id === sectionId 
+          ? { 
+              ...section, 
+              questions: section.questions.map(question => 
+                question.id === questionId 
+                  ? { ...question, imageUrl } 
+                  : question
+              ) 
+            } 
+          : section
+      )
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -716,25 +734,13 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
                       />
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="text-sm"
-                        onClick={() => {
-                          toast({
-                            title: "Not implemented",
-                            description: "Image upload would be implemented in a real app"
-                          });
-                        }}
-                      >
-                        <ImageIcon className="h-4 w-4 mr-1" /> Add Image
-                      </Button>
-                      {question.imageUrl && (
-                        <div className="flex-1 text-sm text-gray-500">
-                          Image: {question.imageUrl.split('/').pop()}
-                        </div>
-                      )}
+                    <div className="space-y-2">
+                      <Label>Question Image (Optional)</Label>
+                      <ImageUploader 
+                        imageUrl={question.imageUrl}
+                        onImageChange={(url) => handleQuestionImageChange(section.id, question.id, url)}
+                        questionId={question.id}
+                      />
                     </div>
 
                     <div className="space-y-4">
