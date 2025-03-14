@@ -195,7 +195,7 @@ const ResultsList = () => {
     setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
-  const divisions = Array.from(new Set(results.map(result => result.division)));
+  const divisions = Array.from(new Set(results.map(result => result.division))).filter(Boolean);
 
   const getQuizTitle = (quizId: string): string => {
     const quiz = quizzes.find(q => q.id === quizId);
@@ -241,12 +241,17 @@ const ResultsList = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Select value={selectedQuiz || ""} onValueChange={setSelectedQuiz}>
+                  <Select 
+                    value={selectedQuiz || undefined} 
+                    onValueChange={setSelectedQuiz}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select Quiz" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Quizzes</SelectItem>
+                      {quizzes.length > 0 && (
+                        <SelectItem value="all">All Quizzes</SelectItem>
+                      )}
                       {quizzes.map(quiz => (
                         <SelectItem key={quiz.id} value={quiz.id}>
                           {quiz.title}
@@ -256,12 +261,17 @@ const ResultsList = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Select value={selectedDivision || ""} onValueChange={setSelectedDivision}>
+                  <Select 
+                    value={selectedDivision || undefined} 
+                    onValueChange={setSelectedDivision}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select Division" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Divisions</SelectItem>
+                      {divisions.length > 0 && (
+                        <SelectItem value="all">All Divisions</SelectItem>
+                      )}
                       {divisions.map(division => (
                         <SelectItem key={division} value={division}>
                           Division {division}
@@ -271,12 +281,14 @@ const ResultsList = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Select value={sortBy || ""} onValueChange={setSortBy}>
+                  <Select 
+                    value={sortBy || undefined} 
+                    onValueChange={setSortBy}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Sort By" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Sorting</SelectItem>
                       <SelectItem value="name">Name</SelectItem>
                       <SelectItem value="marks">Marks</SelectItem>
                       <SelectItem value="percentage">Percentage</SelectItem>
