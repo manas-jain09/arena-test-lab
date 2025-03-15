@@ -79,59 +79,47 @@ serve(async (req) => {
       );
     }
 
-    // Instead of generating PDF with pdfMake, we'll create HTML content
-    // and convert it to PDF using jsPDF or another approach
-    // For simplicity, let's just generate HTML content directly
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${quiz.title} - Results Report</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          h1 { color: #333; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-          tr:nth-child(even) { background-color: #f9f9f9; }
-        </style>
-      </head>
-      <body>
-        <h1>${quiz.title} - Results Report</h1>
-        <p>Generated on ${new Date().toLocaleString()}</p>
-        
-        <table>
-          <tr>
-            <th>Name</th>
-            <th>PRN</th>
-            <th>Division</th>
-            <th>Cheating Status</th>
-            <th>Marks</th>
-            <th>Percentage</th>
-            <th>Submitted At</th>
-          </tr>
-          ${results.map(result => `
-            <tr>
-              <td>${result.name}</td>
-              <td>${result.prn}</td>
-              <td>Division ${result.division}</td>
-              <td>${result.cheating_status === 'flagged' ? 'Flagged' : 'No Issues'}</td>
-              <td>${result.marks_scored} / ${result.total_marks}</td>
-              <td>${((result.marks_scored / result.total_marks) * 100).toFixed(2)}%</td>
-              <td>${new Date(result.submitted_at).toLocaleString()}</td>
-            </tr>
-          `).join('')}
-        </table>
-      </body>
-      </html>
-    `;
+    // Generate CSV content
+    const csvHeader = [
+      'Name',
+      'PRN',
+      'Division',
+      'Cheating Status',
+      'Marks Scored',
+      'Total Marks',
+      'Percentage',
+      'Submitted At',
+    ].join(',');
 
-    // Convert HTML to Blob
-    const encoder = new TextEncoder();
-    const htmlBytes = encoder.encode(htmlContent);
+    const csvRows = results.map(result => {
+      const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2);
+      const submittedDate = new Date(result.submitted_at).toLocaleString();
+      const cheatingStatus = result.cheating_status === 'flagged' ? 'Flagged' : 'No Issues';
+      
+      // Escape fields that might contain commas
+      const escapeCsvField = (field: string) => {
+        if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      };
+      
+      return [
+        escapeCsvField(result.name),
+        escapeCsvField(result.prn),
+        `Division ${result.division}`,
+        cheatingStatus,
+        result.marks_scored,
+        result.total_marks,
+        `${percentage}%`,
+        escapeCsvField(submittedDate)
+      ].join(',');
+    });
+
+    const csvContent = [csvHeader, ...csvRows].join('\n');
     
-    // Generate a unique filename for the HTML file
-    const filename = `quiz-results-${quizId}-${Date.now()}.html`;
+    // Generate a filename for the CSV file
+    const filename = `quiz-results-${quizId}-${Date.now()}.csv`;
     
     // Create a storage bucket if it doesn't exist yet
     const { error: bucketError } = await supabaseClient
@@ -142,12 +130,15 @@ serve(async (req) => {
       })
       .catch(() => ({ error: null })); // Bucket might already exist
     
-    // Upload the HTML file to storage
+    // Upload the CSV file to storage
+    const encoder = new TextEncoder();
+    const csvBytes = encoder.encode(csvContent);
+    
     const { data: upload, error: uploadError } = await supabaseClient
       .storage
       .from('quiz-reports')
-      .upload(`reports/${filename}`, htmlBytes, {
-        contentType: 'text/html',
+      .upload(`reports/${filename}`, csvBytes, {
+        contentType: 'text/csv',
         upsert: true
       });
     
@@ -173,7 +164,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        pdfUrl: signedUrl.signedUrl,
+        csvUrl: signedUrl.signedUrl,
         message: 'Report generated successfully' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

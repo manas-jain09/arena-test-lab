@@ -35,7 +35,7 @@ const ResultsList = () => {
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
 
   // Fetch quizzes
   const { data: quizzes = [] } = useQuery({
@@ -109,8 +109,8 @@ const ResultsList = () => {
     });
   };
 
-  // Generate and download PDF report
-  const handleExportPdf = async () => {
+  // Generate and download CSV report
+  const handleExportCsv = async () => {
     if (!selectedQuiz || selectedQuiz === 'all') {
       toast({
         title: 'Error',
@@ -121,10 +121,10 @@ const ResultsList = () => {
     }
 
     try {
-      setIsGeneratingPdf(true);
+      setIsGeneratingCsv(true);
       toast({
         title: 'Generating Report',
-        description: 'Please wait while we generate your report...',
+        description: 'Please wait while we generate your CSV report...',
       });
 
       // Prepare filters to send to the edge function
@@ -135,7 +135,7 @@ const ResultsList = () => {
         sortOrder
       };
 
-      // Call the Supabase function to generate PDF
+      // Call the Supabase function to generate CSV
       const { data, error } = await supabase.functions.invoke('generate-quiz-pdf', {
         body: { 
           quizId: selectedQuiz,
@@ -144,17 +144,22 @@ const ResultsList = () => {
       });
 
       if (error) {
-        console.error('Error generating PDF:', error);
+        console.error('Error generating CSV:', error);
         throw error;
       }
 
-      if (data && data.pdfUrl) {
+      if (data && data.csvUrl) {
         // Create a link element to trigger the download
-        window.open(data.pdfUrl, '_blank');
+        const link = document.createElement('a');
+        link.href = data.csvUrl;
+        link.setAttribute('download', `quiz-results-${selectedQuiz}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         
         toast({
           title: 'Report Generated',
-          description: 'Your report has been generated and opened in a new tab.',
+          description: 'Your CSV report has been generated and downloaded.',
         });
       } else {
         throw new Error('No report URL returned from the server');
@@ -167,7 +172,7 @@ const ResultsList = () => {
         variant: 'destructive'
       });
     } finally {
-      setIsGeneratingPdf(false);
+      setIsGeneratingCsv(false);
     }
   };
 
@@ -228,12 +233,12 @@ const ResultsList = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Results</h1>
         <Button 
-          onClick={handleExportPdf}
+          onClick={handleExportCsv}
           className="bg-arena-red hover:bg-arena-darkRed"
-          disabled={isGeneratingPdf || !selectedQuiz || selectedQuiz === 'all'}
+          disabled={isGeneratingCsv || !selectedQuiz || selectedQuiz === 'all'}
         >
           <Download className="h-4 w-4 mr-2" /> 
-          {isGeneratingPdf ? 'Generating...' : 'Export to HTML'}
+          {isGeneratingCsv ? 'Generating...' : 'Export to CSV'}
         </Button>
       </div>
 
