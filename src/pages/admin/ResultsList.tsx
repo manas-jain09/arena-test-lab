@@ -152,6 +152,7 @@ const ResultsList = () => {
         // Create a link element to trigger the download
         const downloadLink = document.createElement('a');
         downloadLink.href = data.pdfUrl;
+        downloadLink.target = '_blank';
         downloadLink.download = `quiz-results-${selectedQuiz}.pdf`;
         document.body.appendChild(downloadLink);
         downloadLink.click();
@@ -268,7 +269,7 @@ const ResultsList = () => {
                 </div>
                 <div className="space-y-2">
                   <Select 
-                    value={selectedQuiz || undefined} 
+                    value={selectedQuiz || ""} 
                     onValueChange={setSelectedQuiz}
                   >
                     <SelectTrigger>
@@ -288,7 +289,7 @@ const ResultsList = () => {
                 </div>
                 <div className="space-y-2">
                   <Select 
-                    value={selectedDivision || undefined} 
+                    value={selectedDivision || ""} 
                     onValueChange={setSelectedDivision}
                   >
                     <SelectTrigger>
@@ -308,7 +309,7 @@ const ResultsList = () => {
                 </div>
                 <div className="space-y-2">
                   <Select 
-                    value={sortBy || undefined} 
+                    value={sortBy || ""} 
                     onValueChange={setSortBy}
                   >
                     <SelectTrigger>

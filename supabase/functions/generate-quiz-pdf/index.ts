@@ -2,7 +2,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import * as pdfMake from 'https://esm.sh/pdfmake@0.2.7';
-import { TDocumentDefinitions } from 'https://esm.sh/pdfmake@0.2.7/interfaces';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,7 +81,7 @@ serve(async (req) => {
     }
 
     // Generate PDF document definition
-    const docDefinition: TDocumentDefinitions = {
+    const docDefinition = {
       content: [
         { text: `${quiz.title} - Results Report`, style: 'header' },
         { text: `Generated on ${new Date().toLocaleString()}`, style: 'subheader' },
@@ -101,7 +100,7 @@ serve(async (req) => {
                 'Percentage', 
                 'Submitted At'
               ],
-              ...results.map((result: any) => [
+              ...results.map((result) => [
                 result.name,
                 result.prn,
                 `Division ${result.division}`,
@@ -131,8 +130,8 @@ serve(async (req) => {
     const pdfDoc = pdfMake.createPdf(docDefinition);
     
     // Convert to buffer
-    const pdfBuffer = await new Promise<Uint8Array>((resolve) => {
-      pdfDoc.getBuffer((buffer: Uint8Array) => {
+    const pdfBuffer = await new Promise((resolve) => {
+      pdfDoc.getBuffer((buffer) => {
         resolve(buffer);
       });
     });
