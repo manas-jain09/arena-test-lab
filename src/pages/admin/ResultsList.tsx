@@ -90,7 +90,7 @@ const ResultsList = () => {
         prn: result.prn,
         division: result.division,
         email: result.email,
-        cheatingStatus: result.cheating_status as 'flagged' | 'no-issues',
+        cheatingStatus: result.cheating_status,
         marksScored: result.marks_scored,
         totalMarks: result.total_marks,
         submittedAt: result.submitted_at
@@ -123,7 +123,7 @@ const ResultsList = () => {
     try {
       setIsGeneratingPdf(true);
       toast({
-        title: 'Generating PDF',
+        title: 'Generating Report',
         description: 'Please wait while we generate your report...',
       });
 
@@ -150,26 +150,20 @@ const ResultsList = () => {
 
       if (data && data.pdfUrl) {
         // Create a link element to trigger the download
-        const downloadLink = document.createElement('a');
-        downloadLink.href = data.pdfUrl;
-        downloadLink.target = '_blank';
-        downloadLink.download = `quiz-results-${selectedQuiz}.pdf`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+        window.open(data.pdfUrl, '_blank');
         
         toast({
-          title: 'PDF Downloaded',
-          description: 'Your report has been generated and downloaded successfully.',
+          title: 'Report Generated',
+          description: 'Your report has been generated and opened in a new tab.',
         });
       } else {
-        throw new Error('No PDF URL returned from the server');
+        throw new Error('No report URL returned from the server');
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error generating report:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate PDF report. Please try again.',
+        description: 'Failed to generate report. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -239,7 +233,7 @@ const ResultsList = () => {
           disabled={isGeneratingPdf || !selectedQuiz || selectedQuiz === 'all'}
         >
           <Download className="h-4 w-4 mr-2" /> 
-          {isGeneratingPdf ? 'Generating...' : 'Export to PDF'}
+          {isGeneratingPdf ? 'Generating...' : 'Export to HTML'}
         </Button>
       </div>
 
@@ -365,12 +359,14 @@ const ResultsList = () => {
                         <TableCell>
                           <Badge 
                             className={
-                              result.cheatingStatus === 'flagged' 
+                              result.cheatingStatus === 'flagged' || result.cheatingStatus === 'caught-cheating'
                                 ? 'bg-red-100 text-red-800' 
                                 : 'bg-green-100 text-green-800'
                             }
                           >
-                            {result.cheatingStatus === 'flagged' ? 'Flagged' : 'No Issues'}
+                            {result.cheatingStatus === 'flagged' || result.cheatingStatus === 'caught-cheating' 
+                              ? 'Flagged' 
+                              : 'No Issues'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">

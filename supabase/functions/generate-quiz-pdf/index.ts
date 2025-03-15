@@ -1,7 +1,6 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import * as pdfMake from 'https://esm.sh/pdfmake@0.2.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,64 +79,59 @@ serve(async (req) => {
       );
     }
 
-    // Generate PDF document definition
-    const docDefinition = {
-      content: [
-        { text: `${quiz.title} - Results Report`, style: 'header' },
-        { text: `Generated on ${new Date().toLocaleString()}`, style: 'subheader' },
-        { text: ' ' }, // Spacer
-        {
-          table: {
-            headerRows: 1,
-            widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
-            body: [
-              [
-                'Name', 
-                'PRN', 
-                'Division', 
-                'Cheating Status', 
-                'Marks', 
-                'Percentage', 
-                'Submitted At'
-              ],
-              ...results.map((result) => [
-                result.name,
-                result.prn,
-                `Division ${result.division}`,
-                result.cheating_status === 'flagged' ? 'Flagged' : 'No Issues',
-                `${result.marks_scored} / ${result.total_marks}`,
-                `${((result.marks_scored / result.total_marks) * 100).toFixed(2)}%`,
-                new Date(result.submitted_at).toLocaleString()
-              ])
-            ]
-          }
-        }
-      ],
-      styles: {
-        header: {
-          fontSize: 18,
-          bold: true,
-          margin: [0, 0, 0, 10]
-        },
-        subheader: {
-          fontSize: 14,
-          margin: [0, 0, 0, 10]
-        }
-      }
-    };
+    // Instead of generating PDF with pdfMake, we'll create HTML content
+    // and convert it to PDF using jsPDF or another approach
+    // For simplicity, let's just generate HTML content directly
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${quiz.title} - Results Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+        </style>
+      </head>
+      <body>
+        <h1>${quiz.title} - Results Report</h1>
+        <p>Generated on ${new Date().toLocaleString()}</p>
+        
+        <table>
+          <tr>
+            <th>Name</th>
+            <th>PRN</th>
+            <th>Division</th>
+            <th>Cheating Status</th>
+            <th>Marks</th>
+            <th>Percentage</th>
+            <th>Submitted At</th>
+          </tr>
+          ${results.map(result => `
+            <tr>
+              <td>${result.name}</td>
+              <td>${result.prn}</td>
+              <td>Division ${result.division}</td>
+              <td>${result.cheating_status === 'flagged' ? 'Flagged' : 'No Issues'}</td>
+              <td>${result.marks_scored} / ${result.total_marks}</td>
+              <td>${((result.marks_scored / result.total_marks) * 100).toFixed(2)}%</td>
+              <td>${new Date(result.submitted_at).toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </table>
+      </body>
+      </html>
+    `;
 
-    // Create PDF
-    const pdfDoc = pdfMake.createPdf(docDefinition);
+    // Convert HTML to Blob
+    const encoder = new TextEncoder();
+    const htmlBytes = encoder.encode(htmlContent);
     
-    // Convert to buffer
-    const pdfBuffer = await new Promise((resolve) => {
-      pdfDoc.getBuffer((buffer) => {
-        resolve(buffer);
-      });
-    });
-
-    // Generate a unique filename for the PDF
-    const filename = `quiz-results-${quizId}-${Date.now()}.pdf`;
+    // Generate a unique filename for the HTML file
+    const filename = `quiz-results-${quizId}-${Date.now()}.html`;
     
     // Create a storage bucket if it doesn't exist yet
     const { error: bucketError } = await supabaseClient
@@ -148,18 +142,18 @@ serve(async (req) => {
       })
       .catch(() => ({ error: null })); // Bucket might already exist
     
-    // Upload the PDF to storage
+    // Upload the HTML file to storage
     const { data: upload, error: uploadError } = await supabaseClient
       .storage
       .from('quiz-reports')
-      .upload(`reports/${filename}`, pdfBuffer, {
-        contentType: 'application/pdf',
+      .upload(`reports/${filename}`, htmlBytes, {
+        contentType: 'text/html',
         upsert: true
       });
     
     if (uploadError) {
       return new Response(
-        JSON.stringify({ error: 'Error uploading PDF', details: uploadError }),
+        JSON.stringify({ error: 'Error uploading report', details: uploadError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
@@ -180,7 +174,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         pdfUrl: signedUrl.signedUrl,
-        message: 'PDF generated successfully' 
+        message: 'Report generated successfully' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
