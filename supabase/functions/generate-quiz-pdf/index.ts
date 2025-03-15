@@ -84,9 +84,9 @@ serve(async (req) => {
       'Name',
       'PRN',
       'Division',
+      'Quiz',
       'Cheating Status',
-      'Marks Scored',
-      'Total Marks',
+      'Marks',
       'Percentage',
       'Submitted At',
     ].join(',');
@@ -94,7 +94,11 @@ serve(async (req) => {
     const csvRows = results.map(result => {
       const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2);
       const submittedDate = new Date(result.submitted_at).toLocaleString();
-      const cheatingStatus = result.cheating_status === 'flagged' ? 'Flagged' : 'No Issues';
+      
+      // Format cheating status same as UI
+      const cheatingStatus = result.cheating_status === 'flagged' || result.cheating_status === 'caught-cheating' 
+        ? 'Flagged' 
+        : 'No Issues';
       
       // Escape fields that might contain commas
       const escapeCsvField = (field: string) => {
@@ -108,9 +112,9 @@ serve(async (req) => {
         escapeCsvField(result.name),
         escapeCsvField(result.prn),
         `Division ${result.division}`,
+        escapeCsvField(quiz.title), // Include quiz title
         cheatingStatus,
-        result.marks_scored,
-        result.total_marks,
+        `${result.marks_scored} / ${result.total_marks}`,
         `${percentage}%`,
         escapeCsvField(submittedDate)
       ].join(',');
@@ -119,7 +123,8 @@ serve(async (req) => {
     const csvContent = [csvHeader, ...csvRows].join('\n');
     
     // Generate a filename for the CSV file
-    const filename = `quiz-results-${quizId}-${Date.now()}.csv`;
+    const quizTitle = quiz.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const filename = `${quizTitle}-results-${Date.now()}.csv`;
     
     // Create a storage bucket if it doesn't exist yet
     const { error: bucketError } = await supabaseClient
