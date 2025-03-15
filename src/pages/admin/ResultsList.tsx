@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -127,13 +126,15 @@ const ResultsList = () => {
         description: 'Please wait while we generate your CSV report...',
       });
 
-      // Prepare filters to send to the edge function
+      // Prepare filters to send to the edge function, including current UI filters
       const filters = {
         division: selectedDivision === 'all' ? null : selectedDivision,
         searchTerm: searchTerm || null,
-        sortBy: sortBy || 'submitted_at',
+        sortBy: sortBy || null,
         sortOrder
       };
+
+      console.log('Sending export request with filters:', filters);
 
       // Call the Supabase function to generate CSV
       const { data, error } = await supabase.functions.invoke('generate-quiz-pdf', {

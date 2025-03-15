@@ -30,6 +30,8 @@ serve(async (req) => {
       );
     }
 
+    console.log("Processing request for quizId:", quizId, "with filters:", filters);
+
     // Fetch quiz details
     const { data: quiz, error: quizError } = await supabaseClient
       .from('quizzes')
@@ -38,46 +40,81 @@ serve(async (req) => {
       .single();
     
     if (quizError || !quiz) {
+      console.error("Quiz fetch error:", quizError);
       return new Response(
         JSON.stringify({ error: 'Quiz not found', details: quizError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       );
     }
 
-    // Build the query for student results
-    let resultsQuery = supabaseClient
+    // Fetch student results with applied filters
+    let query = supabaseClient
       .from('student_results')
       .select('*')
       .eq('quiz_id', quizId);
     
-    // Apply filters if provided
-    if (filters) {
-      if (filters.division) {
-        resultsQuery = resultsQuery.eq('division', filters.division);
-      }
-      
-      if (filters.searchTerm) {
-        const term = filters.searchTerm.toLowerCase();
-        resultsQuery = resultsQuery.or(`name.ilike.%${term}%,prn.ilike.%${term}%,email.ilike.%${term}%`);
-      }
+    // Apply division filter if provided
+    if (filters && filters.division && filters.division !== 'all') {
+      query = query.eq('division', filters.division);
     }
     
-    // Sort results if specified
-    if (filters && filters.sortBy) {
-      resultsQuery = resultsQuery.order(filters.sortBy, { ascending: filters.sortOrder === 'asc' });
-    } else {
-      resultsQuery = resultsQuery.order('submitted_at', { ascending: false });
+    // Apply search term filter if provided
+    if (filters && filters.searchTerm) {
+      const searchPattern = `%${filters.searchTerm.toLowerCase()}%`;
+      query = query.or(`name.ilike.${searchPattern},prn.ilike.${searchPattern},email.ilike.${searchPattern}`);
     }
     
-    // Fetch student results
-    const { data: results, error: resultsError } = await resultsQuery;
+    // Execute the query to get filtered results
+    const { data: results, error: resultsError } = await query;
     
     if (resultsError) {
+      console.error("Results fetch error:", resultsError);
       return new Response(
         JSON.stringify({ error: 'Error fetching results', details: resultsError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
+
+    if (!results || results.length === 0) {
+      console.log("No results found with the given filters");
+      return new Response(
+        JSON.stringify({ error: 'No results found with the given filters' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
+    }
+
+    // Sort the results in JavaScript instead of SQL
+    let sortedResults = [...results];
+    
+    if (filters && filters.sortBy) {
+      sortedResults.sort((a, b) => {
+        let comparison = 0;
+        switch (filters.sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'marks':
+            comparison = a.marks_scored - b.marks_scored;
+            break;
+          case 'percentage':
+            comparison = (a.marks_scored / a.total_marks) - (b.marks_scored / b.total_marks);
+            break;
+          case 'date':
+          default:
+            comparison = new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
+            break;
+        }
+        
+        return filters.sortOrder === 'asc' ? comparison : -comparison;
+      });
+    } else {
+      // Default sort by submission date (newest first)
+      sortedResults.sort((a, b) => 
+        new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
+      );
+    }
+
+    console.log(`Generating CSV for ${sortedResults.length} results`);
 
     // Generate CSV content
     const csvHeader = [
@@ -91,7 +128,7 @@ serve(async (req) => {
       'Submitted At',
     ].join(',');
 
-    const csvRows = results.map(result => {
+    const csvRows = sortedResults.map(result => {
       const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2);
       const submittedDate = new Date(result.submitted_at).toLocaleString();
       
@@ -101,8 +138,8 @@ serve(async (req) => {
         : 'No Issues';
       
       // Escape fields that might contain commas
-      const escapeCsvField = (field: string) => {
-        if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+      const escapeCsvField = (field) => {
+        if (field && typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
           return `"${field.replace(/"/g, '""')}"`;
         }
         return field;
@@ -135,6 +172,10 @@ serve(async (req) => {
       })
       .catch(() => ({ error: null })); // Bucket might already exist
     
+    if (bucketError) {
+      console.error("Bucket creation error:", bucketError);
+    }
+    
     // Upload the CSV file to storage
     const encoder = new TextEncoder();
     const csvBytes = encoder.encode(csvContent);
@@ -148,6 +189,7 @@ serve(async (req) => {
       });
     
     if (uploadError) {
+      console.error("CSV upload error:", uploadError);
       return new Response(
         JSON.stringify({ error: 'Error uploading report', details: uploadError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -161,12 +203,14 @@ serve(async (req) => {
       .createSignedUrl(`reports/${filename}`, 60); // URL valid for 60 seconds
       
     if (signUrlError) {
+      console.error("Signed URL error:", signUrlError);
       return new Response(
         JSON.stringify({ error: 'Error creating signed URL', details: signUrlError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
+    console.log("CSV report generated successfully");
     return new Response(
       JSON.stringify({ 
         csvUrl: signedUrl.signedUrl,
