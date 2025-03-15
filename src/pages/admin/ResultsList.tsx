@@ -8,8 +8,7 @@ import {
   Search, 
   FileText, 
   Download, 
-  ArrowUpDown,
-  Eye
+  ArrowUpDown
 } from 'lucide-react';
 import { 
   Table, 
@@ -75,7 +74,7 @@ const ResultsList = () => {
         .select('*')
         .order('submitted_at', { ascending: false });
 
-      if (selectedQuiz) {
+      if (selectedQuiz && selectedQuiz !== 'all') {
         query = query.eq('quiz_id', selectedQuiz);
       }
 
@@ -112,10 +111,10 @@ const ResultsList = () => {
 
   // Generate and download PDF report
   const handleExportPdf = async () => {
-    if (!selectedQuiz) {
+    if (!selectedQuiz || selectedQuiz === 'all') {
       toast({
         title: 'Error',
-        description: 'Please select a quiz before exporting results.',
+        description: 'Please select a specific quiz before exporting results.',
         variant: 'destructive'
       });
       return;
@@ -128,12 +127,24 @@ const ResultsList = () => {
         description: 'Please wait while we generate your report...',
       });
 
+      // Prepare filters to send to the edge function
+      const filters = {
+        division: selectedDivision === 'all' ? null : selectedDivision,
+        searchTerm: searchTerm || null,
+        sortBy: sortBy || 'submitted_at',
+        sortOrder
+      };
+
       // Call the Supabase function to generate PDF
       const { data, error } = await supabase.functions.invoke('generate-quiz-pdf', {
-        body: { quizId: selectedQuiz }
+        body: { 
+          quizId: selectedQuiz,
+          filters 
+        }
       });
 
       if (error) {
+        console.error('Error generating PDF:', error);
         throw error;
       }
 
@@ -168,7 +179,7 @@ const ResultsList = () => {
   // Filter and sort the results
   let filteredResults = [...results];
 
-  if (selectedDivision) {
+  if (selectedDivision && selectedDivision !== 'all') {
     filteredResults = filteredResults.filter(result => result.division === selectedDivision);
   }
 
@@ -224,7 +235,7 @@ const ResultsList = () => {
         <Button 
           onClick={handleExportPdf}
           className="bg-arena-red hover:bg-arena-darkRed"
-          disabled={isGeneratingPdf || !selectedQuiz}
+          disabled={isGeneratingPdf || !selectedQuiz || selectedQuiz === 'all'}
         >
           <Download className="h-4 w-4 mr-2" /> 
           {isGeneratingPdf ? 'Generating...' : 'Export to PDF'}
@@ -340,7 +351,6 @@ const ResultsList = () => {
                     <TableHead className="text-right">Marks</TableHead>
                     <TableHead className="text-right">Percentage</TableHead>
                     <TableHead>Submitted At</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -369,16 +379,11 @@ const ResultsList = () => {
                           {((result.marksScored / result.totalMarks) * 100).toFixed(2)}%
                         </TableCell>
                         <TableCell>{formatDate(result.submittedAt)}</TableCell>
-                        <TableCell className="text-center">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-gray-500">
+                      <TableCell colSpan={8} className="text-center py-6 text-gray-500">
                         No results found
                       </TableCell>
                     </TableRow>
