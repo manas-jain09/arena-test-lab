@@ -43,7 +43,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
   
   const difficultyLevels: DifficultyLevel[] = ['easy', 'medium', 'hard'];
   
-  // Add a parameter
   const addParameter = () => {
     const newParam: FunctionParameter = {
       id: Date.now().toString(),
@@ -53,11 +52,9 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     setParameters([...parameters, newParam]);
   };
   
-  // Remove a parameter
   const removeParameter = (id: string) => {
     setParameters(parameters.filter(param => param.id !== id));
     
-    // Update test cases to remove inputs for this parameter
     setTestCases(testCases.map(testCase => {
       const newInput = { ...testCase.input };
       const paramToRemove = parameters.find(p => p.id === id);
@@ -68,13 +65,11 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     }));
   };
   
-  // Update a parameter
   const updateParameter = (id: string, field: keyof FunctionParameter, value: string) => {
     const updatedParameters = parameters.map(param => {
       if (param.id === id) {
         const updatedParam = { ...param, [field]: value };
         
-        // If parameter name changed, update all test case inputs
         if (field === 'parameterName' && param.parameterName !== '') {
           setTestCases(testCases.map(testCase => {
             const newInput = { ...testCase.input };
@@ -93,11 +88,9 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     setParameters(updatedParameters);
   };
   
-  // Add a test case
   const addTestCase = () => {
     const newInputs: Record<string, any> = {};
     parameters.forEach(param => {
-      // Set default values based on parameter type
       switch (param.parameterType) {
         case 'int':
         case 'long':
@@ -117,7 +110,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
           newInputs[param.parameterName] = '';
           break;
         default:
-          // For arrays
           newInputs[param.parameterName] = '[]';
       }
     });
@@ -133,12 +125,10 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     setTestCases([...testCases, newTestCase]);
   };
   
-  // Remove a test case
   const removeTestCase = (id: string) => {
     setTestCases(testCases.filter(tc => tc.id !== id));
   };
   
-  // Update a test case
   const updateTestCase = (
     id: string, 
     field: keyof TestCase, 
@@ -149,7 +139,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     ));
   };
   
-  // Update a test case input
   const updateTestCaseInput = (
     testCaseId: string,
     paramName: string,
@@ -165,16 +154,13 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     }));
   };
   
-  // Generate driver code based on parameters and test cases
   const generateDriverCode = async () => {
     try {
-      // Format parameters for database function
       const formattedParams = parameters.map(p => ({
         parameterName: p.parameterName,
         parameterType: p.parameterType
       }));
       
-      // Format test cases for database function
       const formattedTestCases = testCases.map(tc => ({
         input: tc.input,
         output: tc.output,
@@ -182,8 +168,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
         isHidden: tc.isHidden
       }));
       
-      // Call database function to generate driver code
-      const { data, error } = await supabase.rpc<Database['public']['Functions']['generate_driver_code']['Returns']>('generate_driver_code', {
+      const { data, error } = await supabase.rpc('generate_driver_code', {
         function_name: functionName,
         return_type: returnType,
         parameters: formattedParams,
@@ -204,12 +189,10 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
     }
   };
   
-  // Save the coding question
   const handleSave = async () => {
     try {
       setLoading(true);
       
-      // Validate inputs
       if (!title.trim()) {
         toast({
           title: 'Validation Error',
@@ -237,7 +220,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
         return;
       }
       
-      // Validate parameters
       if (parameters.some(p => !p.parameterName.trim())) {
         toast({
           title: 'Validation Error',
@@ -247,7 +229,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
         return;
       }
       
-      // Validate test cases
       if (testCases.length === 0) {
         toast({
           title: 'Validation Error',
@@ -257,11 +238,9 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
         return;
       }
       
-      // Generate driver code
       const driverCode = await generateDriverCode();
       if (!driverCode) return;
       
-      // Insert coding question
       const { data: questionData, error: questionError } = await supabase
         .from('coding_questions')
         .insert({
@@ -280,7 +259,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
       
       if (questionError) throw questionError;
       
-      // Insert parameters
       const parametersToInsert = parameters.map((param, index) => ({
         coding_question_id: questionData.id,
         parameter_name: param.parameterName,
@@ -294,7 +272,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
       
       if (paramsError) throw paramsError;
       
-      // Insert test cases
       const testCasesToInsert = testCases.map((tc, index) => ({
         coding_question_id: questionData.id,
         input: JSON.stringify(tc.input),
@@ -310,7 +287,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
       
       if (testCasesError) throw testCasesError;
       
-      // Insert driver code
       const { error: driverCodeError } = await supabase
         .from('driver_code')
         .insert({
