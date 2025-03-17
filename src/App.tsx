@@ -40,7 +40,11 @@ function App() {
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               {/* Protected admin routes */}
-              <Route path="/admin" element={<ProtectedRoute requiresAdmin={true}><AdminLayout /></ProtectedRoute>}>
+              <Route path="/admin" element={
+                <ProtectedRoute requiresAdmin={true}>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }>
                 <Route path="/admin/dashboard" element={<Dashboard />} />
                 <Route path="/admin/quizzes" element={<QuizzesList />} />
                 <Route path="/admin/quizzes/new" element={<QuizForm />} />

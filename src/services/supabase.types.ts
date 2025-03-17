@@ -75,6 +75,126 @@ export type Database = {
           cpp_code: string;
         };
       };
+      options: {
+        Row: {
+          display_order: number;
+          id: string;
+          is_correct: boolean;
+          question_id: string;
+          text: string;
+        };
+        Insert: {
+          display_order: number;
+          id?: string;
+          is_correct?: boolean;
+          question_id: string;
+          text: string;
+        };
+      };
+      questions: {
+        Row: {
+          display_order: number;
+          id: string;
+          image_url: string | null;
+          marks_for_correct: number;
+          marks_for_unattempted: number;
+          marks_for_wrong: number;
+          section_id: string;
+          text: string;
+        };
+        Insert: {
+          display_order: number;
+          id?: string;
+          image_url?: string | null;
+          marks_for_correct?: number;
+          marks_for_unattempted?: number;
+          marks_for_wrong?: number;
+          section_id: string;
+          text: string;
+        };
+      };
+      quiz_attempts: {
+        Row: {
+          attempted_at: string;
+          id: string;
+          prn: string;
+          quiz_id: string;
+        };
+        Insert: {
+          attempted_at?: string;
+          id?: string;
+          prn: string;
+          quiz_id: string;
+        };
+      };
+      quizzes: {
+        Row: {
+          code: string;
+          created_at: string;
+          created_by: string;
+          duration: number;
+          end_date_time: string;
+          id: string;
+          instructions: string | null;
+          start_date_time: string;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          created_by: string;
+          duration: number;
+          end_date_time: string;
+          id?: string;
+          instructions?: string | null;
+          start_date_time: string;
+          title: string;
+          updated_at?: string;
+        };
+      };
+      sections: {
+        Row: {
+          display_order: number;
+          id: string;
+          instructions: string | null;
+          quiz_id: string;
+          title: string;
+        };
+        Insert: {
+          display_order: number;
+          id?: string;
+          instructions?: string | null;
+          quiz_id: string;
+          title: string;
+        };
+      };
+      student_results: {
+        Row: {
+          cheating_status: string;
+          division: string;
+          email: string;
+          id: string;
+          marks_scored: number;
+          name: string;
+          prn: string;
+          quiz_id: string;
+          submitted_at: string;
+          total_marks: number;
+        };
+        Insert: {
+          cheating_status?: string;
+          division: string;
+          email: string;
+          id?: string;
+          marks_scored: number;
+          name: string;
+          prn: string;
+          quiz_id: string;
+          submitted_at?: string;
+          total_marks: number;
+        };
+      };
     };
     Functions: {
       generate_driver_code: {
@@ -96,6 +216,12 @@ export type Database = {
           c_code: string;
           cpp_code: string;
         };
+      };
+      generate_quiz_results_pdf: {
+        Args: {
+          quiz_id: string;
+        };
+        Returns: string;
       };
     };
   };
