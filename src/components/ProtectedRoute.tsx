@@ -1,7 +1,6 @@
 
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import AdminLayout from './layouts/AdminLayout';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -26,7 +25,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return <AdminLayout>{children}</AdminLayout>;
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;

@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,10 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, ArrowDown, ArrowUp } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { FunctionParameter, TestCase, ReturnType, ParameterType, DifficultyLevel } from '@/types';
+import { Database } from '@/services/supabase.types';
 
 interface CodingQuestionFormProps {
   quizId: string;
@@ -183,7 +183,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
       }));
       
       // Call database function to generate driver code
-      const { data, error } = await supabase.rpc('generate_driver_code', {
+      const { data, error } = await supabase.rpc<Database['public']['Functions']['generate_driver_code']['Returns']>('generate_driver_code', {
         function_name: functionName,
         return_type: returnType,
         parameters: formattedParams,
@@ -273,7 +273,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ quizId, onSave,
           difficulty,
           function_name: functionName,
           return_type: returnType,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: (await supabase.auth.getUser()).data.user?.id || ''
         })
         .select()
         .single();

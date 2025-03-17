@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from "@/components/ProtectedRoute";
-import AdminLayout from "@/components/AdminLayout";
+import AdminLayout from "@/components/layouts/AdminLayout";
 
 // Pages
 import Index from "./pages/Index";
@@ -39,17 +40,15 @@ function App() {
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               {/* Protected admin routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AdminLayout />}>
-                  <Route path="/admin/dashboard" element={<Dashboard />} />
-                  <Route path="/admin/quizzes" element={<QuizzesList />} />
-                  <Route path="/admin/quizzes/new" element={<QuizForm />} />
-                  <Route path="/admin/quizzes/:id" element={<QuizView />} />
-                  <Route path="/admin/quizzes/:id/edit" element={<QuizForm editMode />} />
-                  <Route path="/admin/quizzes/:id/coding-questions" element={<CodingQuestionsList />} />
-                  <Route path="/admin/results" element={<ResultsList />} />
-                  <Route path="/admin/settings" element={<Settings />} />
-                </Route>
+              <Route path="/admin" element={<ProtectedRoute requiresAdmin={true}><AdminLayout /></ProtectedRoute>}>
+                <Route path="/admin/dashboard" element={<Dashboard />} />
+                <Route path="/admin/quizzes" element={<QuizzesList />} />
+                <Route path="/admin/quizzes/new" element={<QuizForm />} />
+                <Route path="/admin/quizzes/:id" element={<QuizView />} />
+                <Route path="/admin/quizzes/:id/edit" element={<QuizForm editMode />} />
+                <Route path="/admin/quizzes/:id/coding-questions" element={<CodingQuestionsList />} />
+                <Route path="/admin/results" element={<ResultsList />} />
+                <Route path="/admin/settings" element={<Settings />} />
               </Route>
               
               {/* Catch-all route */}

@@ -1,253 +1,240 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Code, Plus, Edit, Trash2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { AlertTriangle, ChevronLeft, Plus, Code, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import CodingQuestionForm from '@/components/CodingQuestionForm';
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const CodingQuestionsList = () => {
-  const { id: quizId } = useParams();
-  const navigate = useNavigate();
+  const { id: quizId } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [quizTitle, setQuizTitle] = useState('');
-  const [codingQuestions, setCodingQuestions] = useState<any[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  
   useEffect(() => {
-    fetchQuizDetails();
-    fetchCodingQuestions();
+    fetchQuizAndQuestions();
   }, [quizId]);
-
-  const fetchQuizDetails = async () => {
+  
+  const fetchQuizAndQuestions = async () => {
     try {
+      setLoading(true);
+      
+      // Fetch quiz details
       if (!quizId) return;
-
-      const { data, error } = await supabase
+      
+      const { data: quiz, error: quizError } = await supabase
         .from('quizzes')
         .select('title')
         .eq('id', quizId)
         .single();
-
-      if (error) throw error;
       
-      setQuizTitle(data.title);
-    } catch (error: any) {
-      console.error('Error fetching quiz details:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load quiz details',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const fetchCodingQuestions = async () => {
-    try {
-      setLoading(true);
-      if (!quizId) return;
-
+      if (quizError) throw quizError;
+      
+      setQuizTitle(quiz.title);
+      
+      // Fetch coding questions
       const { data, error } = await supabase
         .from('coding_questions')
-        .select('*')
+        .select(`
+          id, 
+          title, 
+          description, 
+          difficulty, 
+          function_name,
+          return_type,
+          created_at
+        `)
         .eq('quiz_id', quizId)
-        .eq('created_by', user?.id)
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
       
-      setCodingQuestions(data || []);
+      setQuestions(data || []);
     } catch (error: any) {
-      console.error('Error fetching coding questions:', error);
+      console.error('Error fetching quiz and questions:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load coding questions',
+        description: 'Failed to load quiz data: ' + error.message,
         variant: 'destructive'
       });
     } finally {
       setLoading(false);
     }
   };
-
-  const handleDelete = async (questionId: string) => {
+  
+  const handleDeleteQuestion = async (questionId: string) => {
     try {
+      setLoading(true);
+      
       const { error } = await supabase
         .from('coding_questions')
         .delete()
         .eq('id', questionId);
-
+      
       if (error) throw error;
-
+      
       toast({
         title: 'Success',
         description: 'Coding question deleted successfully'
       });
-
-      fetchCodingQuestions();
+      
+      // Refresh the list
+      await fetchQuizAndQuestions();
     } catch (error: any) {
-      console.error('Error deleting coding question:', error);
+      console.error('Error deleting question:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete coding question',
+        description: 'Failed to delete question: ' + error.message,
         variant: 'destructive'
       });
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleAddQuestion = () => {
-    setShowAddForm(true);
-  };
-
-  const handleCancelAdd = () => {
-    setShowAddForm(false);
-  };
-
-  const handleSaveQuestion = () => {
-    setShowAddForm(false);
-    fetchCodingQuestions();
-  };
-
+  
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy':
-        return 'bg-green-500 hover:bg-green-600';
+        return 'bg-green-100 text-green-800';
       case 'medium':
-        return 'bg-yellow-500 hover:bg-yellow-600';
+        return 'bg-yellow-100 text-yellow-800';
       case 'hard':
-        return 'bg-red-500 hover:bg-red-600';
+        return 'bg-red-100 text-red-800';
       default:
-        return 'bg-blue-500 hover:bg-blue-600';
+        return 'bg-gray-100 text-gray-800';
     }
   };
-
-  if (showAddForm) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleCancelAdd} 
-            className="mr-2"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">Add Coding Question</h1>
-        </div>
-        
-        <CodingQuestionForm 
-          quizId={quizId || ''} 
-          onSave={handleSaveQuestion} 
-          onCancel={handleCancelAdd} 
-        />
-      </div>
-    );
-  }
-
+  
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate(`/admin/quizzes/${quizId}`)} 
-            className="mr-2"
+      <div className="flex justify-between items-center">
+        <div>
+          <Link 
+            to={`/admin/quizzes/${quizId}`} 
+            className="text-arena-red hover:text-arena-darkRed inline-flex items-center"
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">
-            Coding Questions: {quizTitle}
-          </h1>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to Quiz
+          </Link>
+          <h1 className="text-2xl font-bold mt-2">Coding Questions</h1>
+          <p className="text-muted-foreground">
+            {quizTitle ? `Quiz: ${quizTitle}` : 'Loading quiz...'}
+          </p>
         </div>
+        
         <Button 
-          className="bg-arena-red hover:bg-arena-darkRed" 
-          onClick={handleAddQuestion}
+          onClick={() => setShowForm(true)} 
+          className="bg-arena-red hover:bg-arena-darkRed"
+          disabled={loading}
         >
-          <Plus className="h-4 w-4 mr-2" /> Add Coding Question
+          <Plus className="h-4 w-4 mr-2" />
+          Add Coding Question
         </Button>
       </div>
-
-      {loading ? (
-        <div className="flex justify-center items-center py-10">
-          <p className="text-gray-500">Loading questions...</p>
-        </div>
+      
+      <Separator />
+      
+      {showForm ? (
+        <CodingQuestionForm 
+          quizId={quizId || ''} 
+          onSave={() => {
+            setShowForm(false);
+            fetchQuizAndQuestions();
+          }}
+          onCancel={() => setShowForm(false)}
+        />
+      ) : loading ? (
+        <div className="text-center py-8">Loading questions...</div>
+      ) : questions.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center text-center py-8">
+              <Code className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">No coding questions yet</h3>
+              <p className="text-muted-foreground mt-1 mb-4">
+                Add coding questions to test programming skills
+              </p>
+              <Button 
+                onClick={() => setShowForm(true)} 
+                className="bg-arena-red hover:bg-arena-darkRed"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Coding Question
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          {codingQuestions.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <Code className="h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-lg text-gray-500">No coding questions found</p>
-                <p className="text-gray-400 mb-6">Add your first coding question to this quiz</p>
-                <Button 
-                  className="bg-arena-red hover:bg-arena-darkRed" 
-                  onClick={handleAddQuestion}
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Add Coding Question
-                </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {questions.map(question => (
+            <Card key={question.id}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg pr-4">{question.title}</CardTitle>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Coding Question</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this coding question? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleDeleteQuestion(question.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Badge className={getDifficultyColor(question.difficulty)}>
+                  {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
+                </Badge>
+                
+                <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  <p><span className="font-medium">Function:</span> {question.function_name}</p>
+                  <p><span className="font-medium">Return Type:</span> {question.return_type}</p>
+                  <p className="line-clamp-2">{question.description}</p>
+                </div>
+                
+                <div className="flex justify-end mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-arena-red border-arena-red hover:bg-arena-red/10"
+                    onClick={() => {
+                      toast({
+                        title: 'Not implemented',
+                        description: 'Viewing and editing is not yet implemented',
+                      });
+                    }}
+                  >
+                    View Details
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {codingQuestions.map(question => (
-                <Card key={question.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="flex flex-row items-start justify-between pb-2">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <CardTitle>{question.title}</CardTitle>
-                        <Badge className={getDifficultyColor(question.difficulty)}>
-                          {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
-                        </Badge>
-                      </div>
-                      <CardDescription>
-                        Function: {question.function_name} → {question.return_type}
-                      </CardDescription>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-more-vertical"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="text-red-500 focus:text-red-500"
-                          onClick={() => handleDelete(question.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="mb-4 line-clamp-2 text-gray-700">
-                      {question.description}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
-                        {question.return_type}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
     </div>
   );
