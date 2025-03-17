@@ -27,6 +27,16 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
     return `arena-${randNum}`;
   };
 
+  const convertToIST = (dateTimeString: string): string => {
+    const date = new Date(dateTimeString);
+    return date.toISOString();
+  };
+
+  const formatDateForInput = (dateTimeString: string): string => {
+    const date = new Date(dateTimeString);
+    return date.toISOString().slice(0, 16);
+  };
+
   const [loading, setLoading] = useState(editMode);
   const [quizData, setQuizData] = useState<Omit<Quiz, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>>({
     title: '',
@@ -116,8 +126,8 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
           code: quizData.code,
           instructions: quizData.instructions || '',
           duration: quizData.duration,
-          startDateTime: new Date(quizData.start_date_time).toISOString().slice(0, 16),
-          endDateTime: new Date(quizData.end_date_time).toISOString().slice(0, 16),
+          startDateTime: formatDateForInput(quizData.start_date_time),
+          endDateTime: formatDateForInput(quizData.end_date_time),
           sections
         });
       } catch (error) {
@@ -350,8 +360,8 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
             title: quizData.title,
             instructions: quizData.instructions,
             duration: quizData.duration,
-            start_date_time: quizData.startDateTime,
-            end_date_time: quizData.endDateTime,
+            start_date_time: convertToIST(quizData.startDateTime),
+            end_date_time: convertToIST(quizData.endDateTime),
             updated_at: new Date().toISOString()
           })
           .eq('id', id);
@@ -429,8 +439,8 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
             code: quizData.code,
             instructions: quizData.instructions,
             duration: quizData.duration,
-            start_date_time: quizData.startDateTime,
-            end_date_time: quizData.endDateTime,
+            start_date_time: convertToIST(quizData.startDateTime),
+            end_date_time: convertToIST(quizData.endDateTime),
             created_by: user.id
           })
           .select()
@@ -863,3 +873,4 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
 };
 
 export default QuizForm;
+

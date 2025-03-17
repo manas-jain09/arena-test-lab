@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -32,9 +31,12 @@ const QuizzesList = () => {
   useEffect(() => {
     const fetchQuizzes = async () => {
       try {
+        if (!user) return;
+
         const { data, error } = await supabase
           .from('quizzes')
           .select('*')
+          .eq('created_by', user.id)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -47,7 +49,6 @@ const QuizzesList = () => {
           return;
         }
 
-        // Transform the data to match our Quiz type
         const transformedQuizzes: Quiz[] = data.map(quiz => ({
           id: quiz.id,
           title: quiz.title,
@@ -101,12 +102,13 @@ const QuizzesList = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleString('en-IN', { 
       year: 'numeric', 
       month: 'short', 
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -135,7 +137,6 @@ const QuizzesList = () => {
           description: 'Quiz deleted successfully!'
         });
 
-        // Remove the deleted quiz from state
         setQuizzes(quizzes.filter(quiz => quiz.id !== id));
       } catch (error) {
         console.error('Error deleting quiz:', error);
@@ -151,7 +152,7 @@ const QuizzesList = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold">Quizzes</h1>
+        <h1 className="text-2xl font-bold">My Quizzes</h1>
         <Button 
           className="bg-arena-red hover:bg-arena-darkRed"
           onClick={() => navigate('/admin/quizzes/new')}
