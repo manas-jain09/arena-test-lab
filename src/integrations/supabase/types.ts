@@ -9,120 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      coding_questions: {
-        Row: {
-          constraints: string | null
-          created_at: string
-          created_by: string
-          description: string
-          difficulty: Database["public"]["Enums"]["difficulty_level"]
-          example: string | null
-          function_name: string
-          id: string
-          quiz_id: string | null
-          return_type: Database["public"]["Enums"]["return_type"]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          constraints?: string | null
-          created_at?: string
-          created_by: string
-          description: string
-          difficulty?: Database["public"]["Enums"]["difficulty_level"]
-          example?: string | null
-          function_name: string
-          id?: string
-          quiz_id?: string | null
-          return_type: Database["public"]["Enums"]["return_type"]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          constraints?: string | null
-          created_at?: string
-          created_by?: string
-          description?: string
-          difficulty?: Database["public"]["Enums"]["difficulty_level"]
-          example?: string | null
-          function_name?: string
-          id?: string
-          quiz_id?: string | null
-          return_type?: Database["public"]["Enums"]["return_type"]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "coding_questions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      driver_code: {
-        Row: {
-          c_code: string
-          coding_question_id: string | null
-          cpp_code: string
-          id: string
-        }
-        Insert: {
-          c_code: string
-          coding_question_id?: string | null
-          cpp_code: string
-          id?: string
-        }
-        Update: {
-          c_code?: string
-          coding_question_id?: string | null
-          cpp_code?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "driver_code_coding_question_id_fkey"
-            columns: ["coding_question_id"]
-            isOneToOne: false
-            referencedRelation: "coding_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      function_parameters: {
-        Row: {
-          coding_question_id: string | null
-          display_order: number
-          id: string
-          parameter_name: string
-          parameter_type: Database["public"]["Enums"]["parameter_type"]
-        }
-        Insert: {
-          coding_question_id?: string | null
-          display_order: number
-          id?: string
-          parameter_name: string
-          parameter_type: Database["public"]["Enums"]["parameter_type"]
-        }
-        Update: {
-          coding_question_id?: string | null
-          display_order?: number
-          id?: string
-          parameter_name?: string
-          parameter_type?: Database["public"]["Enums"]["parameter_type"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "function_parameters_coding_question_id_fkey"
-            columns: ["coding_question_id"]
-            isOneToOne: false
-            referencedRelation: "coding_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       options: {
         Row: {
           display_order: number
@@ -343,58 +229,11 @@ export type Database = {
           },
         ]
       }
-      test_cases: {
-        Row: {
-          coding_question_id: string | null
-          display_order: number
-          id: string
-          input: string
-          is_hidden: boolean
-          output: string
-          points: number
-        }
-        Insert: {
-          coding_question_id?: string | null
-          display_order: number
-          id?: string
-          input: string
-          is_hidden?: boolean
-          output: string
-          points?: number
-        }
-        Update: {
-          coding_question_id?: string | null
-          display_order?: number
-          id?: string
-          input?: string
-          is_hidden?: boolean
-          output?: string
-          points?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "test_cases_coding_question_id_fkey"
-            columns: ["coding_question_id"]
-            isOneToOne: false
-            referencedRelation: "coding_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      generate_driver_code: {
-        Args: {
-          function_name: string
-          return_type: string
-          parameters: Json
-          test_cases: Json
-        }
-        Returns: Json
-      }
       generate_quiz_results_pdf: {
         Args: {
           quiz_id: string
@@ -403,38 +242,7 @@ export type Database = {
       }
     }
     Enums: {
-      difficulty_level: "easy" | "medium" | "hard"
-      parameter_type:
-        | "int"
-        | "long"
-        | "float"
-        | "double"
-        | "boolean"
-        | "char"
-        | "string"
-        | "int[]"
-        | "long[]"
-        | "float[]"
-        | "double[]"
-        | "boolean[]"
-        | "char[]"
-        | "string[]"
-      return_type:
-        | "int"
-        | "long"
-        | "float"
-        | "double"
-        | "boolean"
-        | "char"
-        | "string"
-        | "void"
-        | "int[]"
-        | "long[]"
-        | "float[]"
-        | "double[]"
-        | "boolean[]"
-        | "char[]"
-        | "string[]"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never

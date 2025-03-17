@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, Clock, Calendar, Edit, Copy, FileText, Eye, Download, Users, Trash, ArrowLeft, Code } from 'lucide-react';
+import { ChevronLeft, Clock, Calendar, Edit, Copy, FileText } from 'lucide-react';
 import { Quiz, Section, Question } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +23,7 @@ const QuizView = () => {
       try {
         setLoading(true);
         
+        // Fetch quiz
         const { data: quizData, error: quizError } = await supabase
           .from('quizzes')
           .select('*')
@@ -40,6 +42,7 @@ const QuizView = () => {
           return;
         }
 
+        // Fetch sections
         const { data: sectionsData, error: sectionsError } = await supabase
           .from('sections')
           .select('*')
@@ -50,6 +53,7 @@ const QuizView = () => {
 
         const quizSections: Section[] = [];
 
+        // Fetch questions and options for each section
         for (const section of sectionsData) {
           const { data: questionsData, error: questionsError } = await supabase
             .from('questions')
@@ -93,6 +97,7 @@ const QuizView = () => {
           });
         }
 
+        // Assemble the full quiz object
         const fullQuiz: Quiz = {
           id: quizData.id,
           title: quizData.title,
@@ -193,32 +198,16 @@ const QuizView = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Button variant="outline" onClick={() => navigate('/admin/quizzes')}>
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back
+      <div className="flex justify-between items-center">
+        <Button variant="outline" onClick={() => navigate('/admin/quizzes')}>
+          <ChevronLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <div className="flex space-x-3">
+          <Button variant="outline" onClick={() => navigate(`/admin/quizzes/${id}/edit`)}>
+            <Edit className="mr-2 h-4 w-4" /> Edit Quiz
           </Button>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/admin/quizzes/${id}/coding-questions`)}
-            >
-              <Code className="h-4 w-4 mr-2" /> Coding Questions
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/admin/quizzes/${id}/edit`)}
-            >
-              <Edit className="h-4 w-4 mr-2" /> Edit Quiz
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
           <Button variant="outline" onClick={() => navigate(`/admin/results?quizId=${id}`)}>
             <FileText className="mr-2 h-4 w-4" /> View Results
-          </Button>
-          <Button variant="outline" onClick={copyQuizCode}>
-            <Copy className="h-4 w-4" />
           </Button>
         </div>
       </div>
