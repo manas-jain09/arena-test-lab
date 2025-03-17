@@ -1,228 +1,183 @@
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-    
-    // Parse request body
-    const { quizId, filters } = await req.json();
-    
-    if (!quizId) {
-      return new Response(
-        JSON.stringify({ error: 'Quiz ID is required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    )
+
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser()
+
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    console.log("Processing request for quizId:", quizId, "with filters:", filters);
+    const { quizId, filters } = await req.json()
 
-    // Fetch quiz details
-    const { data: quiz, error: quizError } = await supabaseClient
+    if (!quizId) {
+      return new Response(JSON.stringify({ error: 'Quiz ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Verify that the quiz belongs to the authenticated user
+    const { data: quizData, error: quizError } = await supabaseClient
       .from('quizzes')
       .select('*')
       .eq('id', quizId)
-      .single();
-    
-    if (quizError || !quiz) {
-      console.error("Quiz fetch error:", quizError);
+      .eq('created_by', user.id)
+      .single()
+
+    if (quizError || !quizData) {
+      console.error('Quiz access error:', quizError)
       return new Response(
-        JSON.stringify({ error: 'Quiz not found', details: quizError }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
+        JSON.stringify({ error: 'You do not have permission to access this quiz' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
-    // Fetch student results with applied filters
+    // Get quiz results with filters (similar to frontend filtering logic)
     let query = supabaseClient
       .from('student_results')
       .select('*')
-      .eq('quiz_id', quizId);
-    
+      .eq('quiz_id', quizId)
+
     // Apply division filter if provided
-    if (filters && filters.division && filters.division !== 'all') {
-      query = query.eq('division', filters.division);
+    if (filters?.division && filters.division !== 'all') {
+      query = query.eq('division', filters.division)
     }
-    
-    // Apply search term filter if provided
-    if (filters && filters.searchTerm) {
-      const searchPattern = `%${filters.searchTerm.toLowerCase()}%`;
-      query = query.or(`name.ilike.${searchPattern},prn.ilike.${searchPattern},email.ilike.${searchPattern}`);
-    }
-    
-    // Execute the query to get filtered results
-    const { data: results, error: resultsError } = await query;
-    
+
+    const { data: results, error: resultsError } = await query
+
     if (resultsError) {
-      console.error("Results fetch error:", resultsError);
-      return new Response(
-        JSON.stringify({ error: 'Error fetching results', details: resultsError }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+      console.error('Error fetching results:', resultsError)
+      return new Response(JSON.stringify({ error: 'Failed to fetch quiz results' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     if (!results || results.length === 0) {
-      console.log("No results found with the given filters");
-      return new Response(
-        JSON.stringify({ error: 'No results found with the given filters' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
+      return new Response(JSON.stringify({ error: 'No results found for this quiz' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Sort the results in JavaScript instead of SQL
-    let sortedResults = [...results];
-    
-    if (filters && filters.sortBy) {
-      sortedResults.sort((a, b) => {
-        let comparison = 0;
+    // Apply search filter if provided
+    let filteredResults = [...results]
+    if (filters?.searchTerm) {
+      const term = filters.searchTerm.toLowerCase()
+      filteredResults = filteredResults.filter(
+        (result) =>
+          result.name.toLowerCase().includes(term) ||
+          result.prn.toLowerCase().includes(term) ||
+          result.email.toLowerCase().includes(term)
+      )
+    }
+
+    // Apply sorting if provided
+    if (filters?.sortBy) {
+      filteredResults.sort((a, b) => {
+        let comparison = 0
+
         switch (filters.sortBy) {
           case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
+            comparison = a.name.localeCompare(b.name)
+            break
           case 'marks':
-            comparison = a.marks_scored - b.marks_scored;
-            break;
+            comparison = a.marks_scored - b.marks_scored
+            break
           case 'percentage':
-            comparison = (a.marks_scored / a.total_marks) - (b.marks_scored / b.total_marks);
-            break;
+            comparison = a.marks_scored / a.total_marks - b.marks_scored / b.total_marks
+            break
           case 'date':
+            comparison = new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
+            break
           default:
-            comparison = new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
-            break;
+            comparison = 0
         }
-        
-        return filters.sortOrder === 'asc' ? comparison : -comparison;
-      });
-    } else {
-      // Default sort by submission date (newest first)
-      sortedResults.sort((a, b) => 
-        new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
-      );
+
+        return filters.sortOrder === 'asc' ? comparison : -comparison
+      })
     }
 
-    console.log(`Generating CSV for ${sortedResults.length} results`);
+    // Format dates (similar to frontend formatting)
+    const formatDate = (dateString: string) => {
+      const date = new Date(dateString)
+      return date.toLocaleString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Kolkata'
+      })
+    }
+
+    // Format cheating status (match UI representation)
+    const formatCheatingStatus = (status: string) => {
+      return status === 'flagged' || status === 'caught-cheating' ? 'Flagged' : 'No Issues'
+    }
 
     // Generate CSV content
-    const csvHeader = [
-      'Name',
-      'PRN',
-      'Division',
-      'Quiz',
-      'Cheating Status',
-      'Marks',
-      'Percentage',
-      'Submitted At',
-    ].join(',');
+    let csvContent = `Quiz Results for: ${quizData.title}\n`
+    csvContent += 'Name,PRN,Division,Cheating Status,Marks,Percentage,Submitted At\n'
 
-    const csvRows = sortedResults.map(result => {
-      const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2);
-      const submittedDate = new Date(result.submitted_at).toLocaleString();
-      
-      // Format cheating status same as UI
-      const cheatingStatus = result.cheating_status === 'flagged' || result.cheating_status === 'caught-cheating' 
-        ? 'Flagged' 
-        : 'No Issues';
-      
-      // Escape fields that might contain commas
-      const escapeCsvField = (field) => {
-        if (field && typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
-          return `"${field.replace(/"/g, '""')}"`;
-        }
-        return field;
-      };
-      
-      return [
-        escapeCsvField(result.name),
-        escapeCsvField(result.prn),
-        `Division ${result.division}`,
-        escapeCsvField(quiz.title), // Include quiz title
-        cheatingStatus,
-        `${result.marks_scored} / ${result.total_marks}`,
-        `${percentage}%`,
-        escapeCsvField(submittedDate)
-      ].join(',');
-    });
+    filteredResults.forEach((result) => {
+      const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2)
+      csvContent += `"${result.name}","${result.prn}","Division ${result.division}","${formatCheatingStatus(
+        result.cheating_status
+      )}","${result.marks_scored} / ${result.total_marks}","${percentage}%","${formatDate(
+        result.submitted_at
+      )}"\n`
+    })
 
-    const csvContent = [csvHeader, ...csvRows].join('\n');
-    
-    // Generate a filename for the CSV file
-    const quizTitle = quiz.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    const filename = `${quizTitle}-results-${Date.now()}.csv`;
-    
-    // Create a storage bucket if it doesn't exist yet
-    const { error: bucketError } = await supabaseClient
-      .storage
-      .createBucket('quiz-reports', {
-        public: false,
-        fileSizeLimit: 5242880 // 5MB 
-      })
-      .catch(() => ({ error: null })); // Bucket might already exist
-    
-    if (bucketError) {
-      console.error("Bucket creation error:", bucketError);
-    }
-    
-    // Upload the CSV file to storage
-    const encoder = new TextEncoder();
-    const csvBytes = encoder.encode(csvContent);
-    
-    const { data: upload, error: uploadError } = await supabaseClient
-      .storage
-      .from('quiz-reports')
-      .upload(`reports/${filename}`, csvBytes, {
-        contentType: 'text/csv',
-        upsert: true
-      });
-    
-    if (uploadError) {
-      console.error("CSV upload error:", uploadError);
-      return new Response(
-        JSON.stringify({ error: 'Error uploading report', details: uploadError }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-      
-    // Create a signed URL that will allow downloading the file
-    const { data: signedUrl, error: signUrlError } = await supabaseClient
-      .storage
-      .from('quiz-reports')
-      .createSignedUrl(`reports/${filename}`, 60); // URL valid for 60 seconds
-      
-    if (signUrlError) {
-      console.error("Signed URL error:", signUrlError);
-      return new Response(
-        JSON.stringify({ error: 'Error creating signed URL', details: signUrlError }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
+    // For demo purposes, we're returning the CSV content as a Data URL
+    // In a production environment, you might want to upload this to storage
+    const csvBase64 = btoa(csvContent)
+    const csvUrl = `data:text/csv;base64,${csvBase64}`
 
-    console.log("CSV report generated successfully");
-    return new Response(
-      JSON.stringify({ 
-        csvUrl: signedUrl.signedUrl,
-        message: 'Report generated successfully' 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.log('CSV generation successful')
+
+    return new Response(JSON.stringify({ csvUrl }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   } catch (error) {
-    console.error('Error in generate-quiz-pdf function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    console.error('Error in generate-quiz-pdf function:', error)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
-});
+})
