@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -799,14 +800,14 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
             <div className="space-y-2">
               <Label htmlFor="quizId">Add to Quiz (Optional)</Label>
               <Select
-                value={questionData.quizId}
-                onValueChange={(value) => handleSelectChange('quizId', value)}
+                value={questionData.quizId || "none"}
+                onValueChange={(value) => handleSelectChange('quizId', value === "none" ? undefined : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a quiz" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {availableQuizzes.map((quiz) => (
                     <SelectItem key={quiz.id} value={quiz.id}>
                       {quiz.title}
