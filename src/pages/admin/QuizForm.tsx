@@ -5,12 +5,29 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, MoveDown, MoveUp, Image as ImageIcon, Save, ArrowLeft } from 'lucide-react';
-import { Section, Question, Option, Quiz } from '@/types';
+import { Plus, Trash2, MoveDown, MoveUp, Image as ImageIcon, Save, ArrowLeft, Code, FileText } from 'lucide-react';
+import { Section, Question, Option, Quiz, CodingQuestion, DifficultyLevel, ReturnType, ParameterType, FunctionParameter, TestCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import ImageUploader from '@/components/ImageUploader';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 interface QuizFormProps {
   editMode?: boolean;
@@ -50,8 +67,51 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
       title: 'Section 1',
       instructions: '',
       questions: []
-    }]
+    }],
+    codingQuestions: []
   });
+
+  const [showCodingQuestionDialog, setShowCodingQuestionDialog] = useState(false);
+  const [currentSectionId, setCurrentSectionId] = useState<string>('');
+  const [newCodingQuestion, setNewCodingQuestion] = useState<Partial<CodingQuestion>>({
+    title: '',
+    description: '',
+    example: '',
+    constraints: '',
+    functionName: '',
+    returnType: 'int' as ReturnType,
+    difficulty: 'medium' as DifficultyLevel,
+    parameters: [],
+    testCases: []
+  });
+
+  const typeOptions: { label: string; value: ReturnType | ParameterType }[] = [
+    { label: 'int', value: 'int' },
+    { label: 'long', value: 'long' },
+    { label: 'float', value: 'float' },
+    { label: 'double', value: 'double' },
+    { label: 'boolean', value: 'boolean' },
+    { label: 'char', value: 'char' },
+    { label: 'string', value: 'string' },
+    { label: 'void', value: 'void' },
+    { label: 'int[]', value: 'int[]' },
+    { label: 'long[]', value: 'long[]' },
+    { label: 'float[]', value: 'float[]' },
+    { label: 'double[]', value: 'double[]' },
+    { label: 'boolean[]', value: 'boolean[]' },
+    { label: 'char[]', value: 'char[]' },
+    { label: 'string[]', value: 'string[]' }
+  ];
+
+  const parameterTypeOptions: { label: string; value: ParameterType }[] = typeOptions
+    .filter(t => t.value !== 'void')
+    .map(t => ({ label: t.label, value: t.value as ParameterType }));
+
+  const difficultyOptions = [
+    { label: 'Easy', value: 'easy' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Hard', value: 'hard' }
+  ];
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -292,6 +352,166 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
           : section
       )
     }));
+  };
+
+  const openCodingQuestionDialog = (sectionId: string) => {
+    setCurrentSectionId(sectionId);
+    setNewCodingQuestion({
+      title: '',
+      description: '',
+      example: '',
+      constraints: '',
+      functionName: '',
+      returnType: 'int' as ReturnType,
+      difficulty: 'medium' as DifficultyLevel,
+      parameters: [],
+      testCases: []
+    });
+    setShowCodingQuestionDialog(true);
+  };
+
+  const handleCodingQuestionChange = (field: string, value: any) => {
+    setNewCodingQuestion(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleParameterChange = (paramId: string, field: string, value: any) => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      parameters: prev.parameters?.map(param => 
+        param.id === paramId ? { ...param, [field]: value } : param
+      ) || []
+    }));
+  };
+
+  const addCodingQuestionParameter = () => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      parameters: [...(prev.parameters || []), {
+        id: Date.now().toString(),
+        parameterName: '',
+        parameterType: 'string' as ParameterType
+      }]
+    }));
+  };
+
+  const removeParameter = (paramId: string) => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      parameters: prev.parameters?.filter(param => param.id !== paramId) || []
+    }));
+  };
+
+  const addTestCase = () => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      testCases: [...(prev.testCases || []), {
+        id: Date.now().toString(),
+        input: '',
+        output: '',
+        points: 1,
+        isHidden: false
+      }]
+    }));
+  };
+
+  const handleTestCaseChange = (testCaseId: string, field: string, value: any) => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      testCases: prev.testCases?.map(testCase => 
+        testCase.id === testCaseId ? { ...testCase, [field]: value } : testCase
+      ) || []
+    }));
+  };
+
+  const handleTestCaseParameterChange = (testCaseId: string, paramIndex: number, value: string) => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      testCases: prev.testCases?.map(testCase => 
+        testCase.id === testCaseId ? {
+          ...testCase,
+          input: testCase.input ? JSON.stringify({
+            ...JSON.parse(testCase.input),
+            [`param${paramIndex + 1}`]: value
+          }) : JSON.stringify({ [`param${paramIndex + 1}`]: value })
+        } : testCase
+      ) || []
+    }));
+  };
+
+  const generateDriverCode = () => {
+    const driverCode: { cCode: string, cppCode: string } = {
+      cCode: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main() {
+  // Your code here
+  return 0;
+}`,
+      cppCode: `#include <iostream>
+#include <string>
+
+int main() {
+  // Your code here
+  return 0;
+}`
+    };
+
+    return driverCode;
+  };
+
+  const handleSaveCodingQuestion = () => {
+    if (!newCodingQuestion.title || !newCodingQuestion.description || !newCodingQuestion.functionName) {
+      toast({
+        title: "Error",
+        description: "Title, description, and function name are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!newCodingQuestion.parameters || newCodingQuestion.parameters.length === 0) {
+      toast({
+        title: "Error",
+        description: "At least one parameter is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!newCodingQuestion.testCases || newCodingQuestion.testCases.length === 0) {
+      toast({
+        title: "Error",
+        description: "At least one test case is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const driverCode = generateDriverCode();
+
+    const newQuestion: CodingQuestion = {
+      ...newCodingQuestion as CodingQuestion,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: user?.id || '',
+      driverCode: {
+        cCode: driverCode.cCode,
+        cppCode: driverCode.cppCode
+      }
+    };
+
+    setQuizData(prev => ({
+      ...prev,
+      codingQuestions: [...(prev.codingQuestions || []), newQuestion]
+    }));
+
+    setShowCodingQuestionDialog(false);
+    toast({
+      title: "Success",
+      description: "Coding question added successfully"
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -712,11 +932,30 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
                 />
               </div>
 
+              <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 py-6"
+                  onClick={() => addQuestion(section.id)}
+                >
+                  <FileText className="h-5 w-5 mr-2" /> Add MCQ Question
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 py-6"
+                  onClick={() => openCodingQuestionDialog(section.id)}
+                >
+                  <Code className="h-5 w-5 mr-2" /> Add Coding Question
+                </Button>
+              </div>
+
               {section.questions.map((question, qIndex) => (
                 <Card key={question.id} className="border border-gray-200 shadow-sm">
                   <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                     <CardTitle className="text-base">
-                      Question {qIndex + 1}
+                      MCQ Question {qIndex + 1}
                     </CardTitle>
                     <Button
                       variant="ghost"
@@ -847,14 +1086,34 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
                 </Card>
               ))}
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full mt-4"
-                onClick={() => addQuestion(section.id)}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Add Question
-              </Button>
+              {quizData.codingQuestions?.filter(q => q.quizId === section.id).map((codingQuestion, index) => (
+                <Card key={codingQuestion.id} className="border border-gray-200 shadow-sm bg-gray-50">
+                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                    <CardTitle className="text-base flex items-center">
+                      <Code className="h-4 w-4 mr-2" /> 
+                      Coding Question {index + 1}
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setQuizData(prev => ({
+                          ...prev,
+                          codingQuestions: prev.codingQuestions?.filter(q => q.id !== codingQuestion.id) || []
+                        }));
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-2 pt-0">
+                    <p className="font-medium">{codingQuestion.title}</p>
+                    <p className="text-sm text-gray-500">Function: {codingQuestion.functionName}</p>
+                    <p className="text-sm text-gray-500">Difficulty: {codingQuestion.difficulty}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </CardContent>
           </Card>
         ))}
@@ -868,9 +1127,274 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
           <Plus className="h-4 w-4 mr-2" /> Add Section
         </Button>
       </form>
+
+      <Dialog open={showCodingQuestionDialog} onOpenChange={setShowCodingQuestionDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Coding Question</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="codingQuestionTitle">Question Title</Label>
+              <Input
+                id="codingQuestionTitle"
+                value={newCodingQuestion.title || ''}
+                onChange={(e) => handleCodingQuestionChange('title', e.target.value)}
+                placeholder="e.g., Two Sum"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="codingQuestionDescription">Problem Description</Label>
+              <Textarea
+                id="codingQuestionDescription"
+                value={newCodingQuestion.description || ''}
+                onChange={(e) => handleCodingQuestionChange('description', e.target.value)}
+                placeholder="Describe the problem..."
+                rows={4}
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="codingQuestionExample">Example</Label>
+                <Textarea
+                  id="codingQuestionExample"
+                  value={newCodingQuestion.example || ''}
+                  onChange={(e) => handleCodingQuestionChange('example', e.target.value)}
+                  placeholder="Input: [1, 2, 3]\nOutput: 6"
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="codingQuestionConstraints">Constraints</Label>
+                <Textarea
+                  id="codingQuestionConstraints"
+                  value={newCodingQuestion.constraints || ''}
+                  onChange={(e) => handleCodingQuestionChange('constraints', e.target.value)}
+                  placeholder="1 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9"
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="codingQuestionFunction">Function Name</Label>
+                <Input
+                  id="codingQuestionFunction"
+                  value={newCodingQuestion.functionName || ''}
+                  onChange={(e) => handleCodingQuestionChange('functionName', e.target.value)}
+                  placeholder="e.g., twoSum"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="codingQuestionReturnType">Return Type</Label>
+                <Select
+                  value={newCodingQuestion.returnType}
+                  onValueChange={(value) => handleCodingQuestionChange('returnType', value as ReturnType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select return type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {typeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="codingQuestionDifficulty">Difficulty</Label>
+                <Select
+                  value={newCodingQuestion.difficulty}
+                  onValueChange={(value) => handleCodingQuestionChange('difficulty', value as DifficultyLevel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {difficultyOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Parameters</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={addCodingQuestionParameter}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Parameter
+                </Button>
+              </div>
+              
+              {newCodingQuestion.parameters && newCodingQuestion.parameters.length > 0 ? (
+                <div className="space-y-2">
+                  {newCodingQuestion.parameters.map((param, index) => (
+                    <div key={param.id} className="flex items-center space-x-2">
+                      <Input
+                        value={param.parameterName}
+                        onChange={(e) => handleParameterChange(param.id, 'parameterName', e.target.value)}
+                        placeholder="Parameter name"
+                        className="flex-1"
+                      />
+                      <Select
+                        value={param.parameterType}
+                        onValueChange={(value) => handleParameterChange(param.id, 'parameterType', value as ParameterType)}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parameterTypeOptions.map((option) => (
+                            <SelectItem key={`${param.id}-${option.value}`} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeParameter(param.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No parameters added yet.</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Test Cases</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={addTestCase}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Test Case
+                </Button>
+              </div>
+              
+              {newCodingQuestion.testCases && newCodingQuestion.testCases.length > 0 ? (
+                <div className="space-y-4">
+                  {newCodingQuestion.testCases.map((testCase, tcIndex) => (
+                    <Card key={testCase.id} className="border border-gray-200">
+                      <CardHeader className="py-2 px-4 flex flex-row items-center justify-between">
+                        <CardTitle className="text-sm font-medium">Test Case {tcIndex + 1}</CardTitle>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeTestCase(testCase.id)}
+                          className="h-6 w-6 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="py-2 px-4 space-y-2">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Inputs</Label>
+                          {newCodingQuestion.parameters && newCodingQuestion.parameters.map((param, paramIndex) => {
+                            let inputValue = '';
+                            try {
+                              const inputObj = testCase.input ? JSON.parse(testCase.input) : {};
+                              inputValue = inputObj[`param${paramIndex + 1}`] || '';
+                            } catch (e) {
+                              console.error("Error parsing input JSON:", e);
+                            }
+                            
+                            return (
+                              <div key={`${testCase.id}-${param.id}`} className="flex items-center space-x-2">
+                                <span className="text-xs w-24 truncate">{param.parameterName}:</span>
+                                <Input
+                                  value={inputValue}
+                                  onChange={(e) => handleTestCaseParameterChange(testCase.id, paramIndex, e.target.value)}
+                                  placeholder={`Input for ${param.parameterName}`}
+                                  className="flex-1 text-xs"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Expected Output</Label>
+                            <Input
+                              value={testCase.output}
+                              onChange={(e) => handleTestCaseChange(testCase.id, 'output', e.target.value)}
+                              placeholder="Expected output"
+                              className="text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Points</Label>
+                            <Input
+                              type="number"
+                              value={testCase.points}
+                              onChange={(e) => handleTestCaseChange(testCase.id, 'points', Number(e.target.value))}
+                              className="text-xs"
+                              min={1}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 pt-1">
+                          <input
+                            type="checkbox"
+                            id={`hidden-${testCase.id}`}
+                            checked={testCase.isHidden}
+                            onChange={(e) => handleTestCaseChange(testCase.id, 'isHidden', e.target.checked)}
+                          />
+                          <Label htmlFor={`hidden-${testCase.id}`} className="text-xs cursor-pointer">
+                            Hidden test case (not visible to students)
+                          </Label>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No test cases added yet.</p>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCodingQuestionDialog(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSaveCodingQuestion}>
+              Save Coding Question
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
 export default QuizForm;
-
