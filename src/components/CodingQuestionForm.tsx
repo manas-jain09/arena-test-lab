@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +41,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
     cCode: '',
     cppCode: '',
   });
+  const [availableQuizzes, setAvailableQuizzes] = useState<Array<{ id: string; title: string }>>([]);
 
   const [questionData, setQuestionData] = useState<Omit<CodingQuestion, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'driverCode'>>({
     title: '',
@@ -51,6 +51,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
     functionName: '',
     returnType: 'int',
     difficulty: 'medium',
+    quizId: undefined,
     parameters: [],
     testCases: []
   });
@@ -66,6 +67,24 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
   ];
 
   const difficultyOptions: DifficultyLevel[] = ['easy', 'medium', 'hard'];
+
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quizzes')
+          .select('id, title')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setAvailableQuizzes(data || []);
+      } catch (error) {
+        console.error('Error fetching quizzes:', error);
+      }
+    };
+
+    fetchQuizzes();
+  }, []);
 
   useEffect(() => {
     const fetchCodingQuestion = async () => {
@@ -195,10 +214,15 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
       if (error) throw error;
 
-      setDriverCode({
-        cCode: data.c_code,
-        cppCode: data.cpp_code
-      });
+      // Fix for TypeScript error: properly type the driver code response
+      if (typeof data === 'object' && data !== null && 'c_code' in data && 'cpp_code' in data) {
+        setDriverCode({
+          cCode: data.c_code as string,
+          cppCode: data.cpp_code as string
+        });
+      } else {
+        throw new Error('Invalid response format from driver code generator');
+      }
 
       toast({
         title: 'Success',
@@ -290,9 +314,56 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
   };
 
   const addTestCase = () => {
+    // Create a default test case input object with all parameters
+    let defaultInput = {};
+    
+    // Add all parameters to the default input with placeholder values
+    questionData.parameters.forEach(param => {
+      let defaultValue;
+      switch (param.parameterType) {
+        case 'int':
+        case 'long':
+          defaultValue = '0';
+          break;
+        case 'float':
+        case 'double':
+          defaultValue = '0.0';
+          break;
+        case 'boolean':
+          defaultValue = 'false';
+          break;
+        case 'char':
+          defaultValue = 'a';
+          break;
+        case 'string':
+          defaultValue = '';
+          break;
+        case 'int[]':
+        case 'long[]':
+          defaultValue = '[0, 0]';
+          break;
+        case 'float[]':
+        case 'double[]':
+          defaultValue = '[0.0, 0.0]';
+          break;
+        case 'boolean[]':
+          defaultValue = '[false, false]';
+          break;
+        case 'char[]':
+          defaultValue = '["a", "b"]';
+          break;
+        case 'string[]':
+          defaultValue = '["", ""]';
+          break;
+        default:
+          defaultValue = '';
+      }
+      defaultInput = { ...defaultInput, [param.parameterName]: defaultValue };
+    });
+
     const newTestCase: TestCase = {
       id: Date.now().toString(),
-      input: '{}',
+      input: JSON.stringify(defaultInput, null, 2),
       output: '',
       isHidden: false,
       points: 1,
@@ -317,6 +388,32 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           ? { ...testCase, [field]: value } 
           : testCase
       )
+    }));
+  };
+
+  const handleTestCaseInputChange = (
+    testCaseId: string, 
+    paramName: string, 
+    value: string
+  ) => {
+    setQuestionData(prev => ({
+      ...prev,
+      testCases: prev.testCases.map(testCase => {
+        if (testCase.id === testCaseId) {
+          try {
+            // Parse current input to object
+            const inputObj = JSON.parse(testCase.input);
+            // Update specific parameter
+            const updatedInput = { ...inputObj, [paramName]: value };
+            // Convert back to string
+            return { ...testCase, input: JSON.stringify(updatedInput, null, 2) };
+          } catch (e) {
+            // If parsing fails, just return the test case unchanged
+            return testCase;
+          }
+        }
+        return testCase;
+      })
     }));
   };
 
@@ -700,6 +797,26 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="quizId">Add to Quiz (Optional)</Label>
+              <Select
+                value={questionData.quizId}
+                onValueChange={(value) => handleSelectChange('quizId', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a quiz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {availableQuizzes.map((quiz) => (
+                    <SelectItem key={quiz.id} value={quiz.id}>
+                      {quiz.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
@@ -911,18 +1028,27 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Input (JSON)</Label>
-                    <Textarea
-                      value={testCase.input}
-                      onChange={(e) => handleTestCaseChange(testCase.id, 'input', e.target.value)}
-                      placeholder='{
-  "param1": 5,
-  "param2": 10
-}'
-                      rows={3}
-                      required
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="mb-2 block">Input Parameters</Label>
+                      {questionData.parameters.map(param => (
+                        <div key={`${testCase.id}-${param.id}`} className="mb-2">
+                          <Label className="text-xs text-gray-500">{param.parameterName} ({param.parameterType})</Label>
+                          <Input
+                            value={(() => {
+                              try {
+                                const inputObj = JSON.parse(testCase.input);
+                                return inputObj[param.parameterName] || '';
+                              } catch (e) {
+                                return '';
+                              }
+                            })()}
+                            onChange={(e) => handleTestCaseInputChange(testCase.id, param.parameterName, e.target.value)}
+                            placeholder={`Enter ${param.parameterType} value`}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
