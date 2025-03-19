@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { CodingQuestion, ParameterType, ReturnType, DifficultyLevel, FunctionParameter, TestCase } from '@/types';
+import { CodingQuestion, ParameterType, ReturnType, DifficultyLevel, FunctionParameter, TestCase, DriverCode } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +37,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
   const [loading, setLoading] = useState(editMode);
   const [activeTab, setActiveTab] = useState('cpp');
-  const [driverCode, setDriverCode] = useState<{ cCode: string; cppCode: string }>({
+  const [driverCode, setDriverCode] = useState<DriverCode>({
     cCode: '',
     cppCode: '',
   });
@@ -188,10 +187,9 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
     try {
       setLoading(true);
 
-      // Format parameters and test cases for the RPC function
       const parametersData = questionData.parameters.map(param => ({
-        parameterName: param.parameterName,
-        parameterType: param.parameterType
+        parameter_name: param.parameterName,
+        parameter_type: param.parameterType
       }));
 
       const testCasesData = questionData.testCases.map(testCase => {
@@ -215,20 +213,19 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
       if (error) throw error;
 
-      // Fix for TypeScript error: properly type the driver code response
-      if (typeof data === 'object' && data !== null && 'c_code' in data && 'cpp_code' in data) {
+      if (data && typeof data === 'object' && 'c_code' in data && 'cpp_code' in data) {
         setDriverCode({
           cCode: data.c_code as string,
           cppCode: data.cpp_code as string
         });
+        
+        toast({
+          title: 'Success',
+          description: 'Driver code generated successfully'
+        });
       } else {
         throw new Error('Invalid response format from driver code generator');
       }
-
-      toast({
-        title: 'Success',
-        description: 'Driver code generated successfully'
-      });
     } catch (error) {
       console.error('Error generating driver code:', error);
       toast({
@@ -315,23 +312,21 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
   };
 
   const addTestCase = () => {
-    // Create a default test case input object with all parameters
     let defaultInput = {};
     
-    // Add all parameters to the default input with placeholder values
     questionData.parameters.forEach(param => {
       let defaultValue;
       switch (param.parameterType) {
         case 'int':
         case 'long':
-          defaultValue = '0';
+          defaultValue = 0;
           break;
         case 'float':
         case 'double':
-          defaultValue = '0.0';
+          defaultValue = 0.0;
           break;
         case 'boolean':
-          defaultValue = 'false';
+          defaultValue = false;
           break;
         case 'char':
           defaultValue = 'a';
@@ -341,20 +336,20 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           break;
         case 'int[]':
         case 'long[]':
-          defaultValue = '[0, 0]';
+          defaultValue = [0, 0];
           break;
         case 'float[]':
         case 'double[]':
-          defaultValue = '[0.0, 0.0]';
+          defaultValue = [0.0, 0.0];
           break;
         case 'boolean[]':
-          defaultValue = '[false, false]';
+          defaultValue = [false, false];
           break;
         case 'char[]':
-          defaultValue = '["a", "b"]';
+          defaultValue = ['a', 'b'];
           break;
         case 'string[]':
-          defaultValue = '["", ""]';
+          defaultValue = ['', ''];
           break;
         default:
           defaultValue = '';
@@ -402,14 +397,77 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
       testCases: prev.testCases.map(testCase => {
         if (testCase.id === testCaseId) {
           try {
-            // Parse current input to object
             const inputObj = JSON.parse(testCase.input);
-            // Update specific parameter
-            const updatedInput = { ...inputObj, [paramName]: value };
-            // Convert back to string
+            const param = questionData.parameters.find(p => p.parameterName === paramName);
+            let typedValue: any = value;
+            
+            if (param) {
+              switch (param.parameterType) {
+                case 'int':
+                case 'long':
+                  typedValue = parseInt(value) || 0;
+                  break;
+                case 'float':
+                case 'double':
+                  typedValue = parseFloat(value) || 0.0;
+                  break;
+                case 'boolean':
+                  typedValue = value.toLowerCase() === 'true';
+                  break;
+                case 'int[]':
+                case 'long[]':
+                  if (value.includes(',')) {
+                    typedValue = value.split(',').map(v => parseInt(v.trim()) || 0);
+                  } else {
+                    try {
+                      typedValue = JSON.parse(value);
+                    } catch (e) {
+                      typedValue = [0];
+                    }
+                  }
+                  break;
+                case 'float[]':
+                case 'double[]':
+                  if (value.includes(',')) {
+                    typedValue = value.split(',').map(v => parseFloat(v.trim()) || 0.0);
+                  } else {
+                    try {
+                      typedValue = JSON.parse(value);
+                    } catch (e) {
+                      typedValue = [0.0];
+                    }
+                  }
+                  break;
+                case 'boolean[]':
+                  if (value.includes(',')) {
+                    typedValue = value.split(',').map(v => v.trim().toLowerCase() === 'true');
+                  } else {
+                    try {
+                      typedValue = JSON.parse(value);
+                    } catch (e) {
+                      typedValue = [false];
+                    }
+                  }
+                  break;
+                case 'char[]':
+                case 'string[]':
+                  if (value.includes(',')) {
+                    typedValue = value.split(',').map(v => v.trim());
+                  } else {
+                    try {
+                      typedValue = JSON.parse(value);
+                    } catch (e) {
+                      typedValue = [''];
+                    }
+                  }
+                  break;
+              }
+            }
+            
+            const updatedInput = { ...inputObj, [paramName]: typedValue };
             return { ...testCase, input: JSON.stringify(updatedInput, null, 2) };
           } catch (e) {
-            // If parsing fails, just return the test case unchanged
+            console.error('Error parsing test case input:', e);
             return testCase;
           }
         }
@@ -456,12 +514,10 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
       try {
         const parsedInput = JSON.parse(testCase.input);
         
-        // Check if input is an object
         if (typeof parsedInput !== 'object' || parsedInput === null || Array.isArray(parsedInput)) {
           return `Test case input must be a JSON object: ${testCase.input}`;
         }
         
-        // Check if all parameters are in the input
         for (const param of questionData.parameters) {
           if (!(param.parameterName in parsedInput)) {
             return `Parameter "${param.parameterName}" is missing in test case input: ${testCase.input}`;
@@ -540,7 +596,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
       setLoading(true);
 
       if (editMode && id) {
-        // Update coding question
         const { error: questionError } = await supabase
           .from('coding_questions')
           .update({
@@ -558,7 +613,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (questionError) throw questionError;
 
-        // Delete existing parameters and test cases
         const { error: deleteParamsError } = await supabase
           .from('function_parameters')
           .delete()
@@ -573,7 +627,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (deleteTestCasesError) throw deleteTestCasesError;
 
-        // Insert new parameters
         for (const param of questionData.parameters) {
           const { error: paramError } = await supabase
             .from('function_parameters')
@@ -587,7 +640,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           if (paramError) throw paramError;
         }
 
-        // Insert new test cases
         for (const testCase of questionData.testCases) {
           const { error: testCaseError } = await supabase
             .from('test_cases')
@@ -603,7 +655,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           if (testCaseError) throw testCaseError;
         }
 
-        // Update or insert driver code
         if (driverCode.cCode && driverCode.cppCode) {
           const { data: existingDriverCode, error: checkError } = await supabase
             .from('driver_code')
@@ -641,7 +692,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           description: "Coding question updated successfully"
         });
       } else {
-        // Create new coding question
         const { data: newQuestion, error: questionError } = await supabase
           .from('coding_questions')
           .insert({
@@ -660,7 +710,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (questionError) throw questionError;
 
-        // Insert parameters
         for (const param of questionData.parameters) {
           const { error: paramError } = await supabase
             .from('function_parameters')
@@ -674,7 +723,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           if (paramError) throw paramError;
         }
 
-        // Insert test cases
         for (const testCase of questionData.testCases) {
           const { error: testCaseError } = await supabase
             .from('test_cases')
@@ -690,7 +738,6 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           if (testCaseError) throw testCaseError;
         }
 
-        // Insert driver code if available
         if (driverCode.cCode && driverCode.cppCode) {
           const { error: driverCodeError } = await supabase
             .from('driver_code')

@@ -40,6 +40,7 @@ export type Quiz = {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
+  codingQuestions?: CodingQuestion[]; // Add this to link coding questions to quiz
 };
 
 export type StudentResult = {
@@ -75,11 +76,16 @@ export type FunctionParameter = {
 
 export type TestCase = {
   id: string;
-  input: string;
+  input: string; // JSON string for structured input
   output: string;
   isHidden: boolean;
   points: number;
   displayOrder: number;
+};
+
+export type DriverCode = {
+  cCode: string;
+  cppCode: string;
 };
 
 export type CodingQuestion = {
@@ -97,8 +103,5 @@ export type CodingQuestion = {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
-  driverCode?: {
-    cCode: string;
-    cppCode: string;
-  };
+  driverCode?: DriverCode;
 };

@@ -83,6 +83,14 @@ const App = () => (
               } 
             />
             <Route 
+              path="/admin/quizzes/:quizId/coding-question/new" 
+              element={
+                <ProtectedRoute>
+                  <CodingQuestionForm />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/admin/results" 
               element={
                 <ProtectedRoute>
@@ -99,7 +107,7 @@ const App = () => (
               } 
             />
 
-            {/* Coding Question Routes */}
+            {/* Coding Question Routes - kept but will be hidden from main navigation */}
             <Route 
               path="/admin/coding-questions" 
               element={
