@@ -9,7 +9,8 @@ import {
   ListChecks,
   FileText,
   Settings,
-  LogOut
+  LogOut,
+  Code
 } from 'lucide-react';
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -25,12 +26,13 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigationItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
     { name: 'Quizzes', path: '/admin/quizzes', icon: <ListChecks className="h-5 w-5" /> },
+    { name: 'Coding Questions', path: '/admin/coding-questions', icon: <Code className="h-5 w-5" /> },
     { name: 'Results', path: '/admin/results', icon: <FileText className="h-5 w-5" /> },
     { name: 'Settings', path: '/admin/settings', icon: <Settings className="h-5 w-5" /> },
   ];
 
   const isActive = (path: string) => {
-    return location.pathname === path;
+    return location.pathname.startsWith(path);
   };
 
   return (

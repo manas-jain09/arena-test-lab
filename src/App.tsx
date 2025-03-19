@@ -21,6 +21,11 @@ import ResultsList from "./pages/admin/ResultsList";
 import Settings from "./pages/admin/Settings";
 import QuizView from "./pages/admin/QuizView";
 
+// Coding Question Pages
+import CodingQuestionsList from "./pages/admin/CodingQuestionsList";
+import CodingQuestionForm from "./components/CodingQuestionForm";
+import CodingQuestionView from "./pages/admin/CodingQuestionView";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -90,6 +95,40 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* Coding Question Routes */}
+            <Route 
+              path="/admin/coding-questions" 
+              element={
+                <ProtectedRoute>
+                  <CodingQuestionsList />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/coding-questions/new" 
+              element={
+                <ProtectedRoute>
+                  <CodingQuestionForm />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/coding-questions/:id" 
+              element={
+                <ProtectedRoute>
+                  <CodingQuestionView />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/coding-questions/:id/edit" 
+              element={
+                <ProtectedRoute>
+                  <CodingQuestionForm editMode />
                 </ProtectedRoute>
               } 
             />
