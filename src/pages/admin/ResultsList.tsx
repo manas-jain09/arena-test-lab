@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ const ResultsList = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(initialQuizId);
-  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
@@ -111,7 +112,7 @@ const ResultsList = () => {
         quizId: result.quiz_id,
         name: result.name,
         prn: result.prn,
-        division: result.division,
+        batch: result.batch || '', // Use batch instead of division
         email: result.email,
         cheatingStatus: result.cheating_status,
         marksScored: result.marks_scored,
@@ -171,9 +172,12 @@ const ResultsList = () => {
         description: 'Please wait while we generate your CSV report...',
       });
 
+      // Use the filtered results directly from the state
+      const dataToExport = filteredResults;
+
       // Prepare filters to send to the edge function, including current UI filters
       const filters = {
-        division: selectedDivision === 'all' ? null : selectedDivision,
+        batch: selectedBatch === 'all' ? null : selectedBatch,
         searchTerm: searchTerm || null,
         sortBy: sortBy || null,
         sortOrder,
@@ -181,12 +185,14 @@ const ResultsList = () => {
       };
 
       console.log('Sending export request with filters:', filters);
+      console.log('Exporting data:', dataToExport);
 
-      // Call the Supabase function to generate CSV
+      // Call the Supabase function to generate CSV with the already filtered data
       const { data, error } = await supabase.functions.invoke('generate-quiz-pdf', {
         body: { 
           quizId: selectedQuiz,
-          filters 
+          filters,
+          filteredResults: dataToExport // Pass the already filtered data
         }
       });
 
@@ -226,8 +232,8 @@ const ResultsList = () => {
   // Filter and sort the results
   let filteredResults = [...results];
 
-  if (selectedDivision && selectedDivision !== 'all') {
-    filteredResults = filteredResults.filter(result => result.division === selectedDivision);
+  if (selectedBatch && selectedBatch !== 'all') {
+    filteredResults = filteredResults.filter(result => result.batch === selectedBatch);
   }
 
   if (searchTerm) {
@@ -268,7 +274,7 @@ const ResultsList = () => {
     setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
-  const divisions = Array.from(new Set(results.map(result => result.division))).filter(Boolean);
+  const batches = Array.from(new Set(results.map(result => result.batch))).filter(Boolean);
 
   const getQuizTitle = (quizId: string): string => {
     const quiz = quizzes.find(q => q.id === quizId);
@@ -341,19 +347,19 @@ const ResultsList = () => {
                     </div>
                     <div className="space-y-2">
                       <Select 
-                        value={selectedDivision || ""} 
-                        onValueChange={setSelectedDivision}
+                        value={selectedBatch || ""} 
+                        onValueChange={setSelectedBatch}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Division" />
+                          <SelectValue placeholder="Select Batch" />
                         </SelectTrigger>
                         <SelectContent>
-                          {divisions.length > 0 && (
-                            <SelectItem value="all">All Divisions</SelectItem>
+                          {batches.length > 0 && (
+                            <SelectItem value="all">All Batches</SelectItem>
                           )}
-                          {divisions.map(division => (
-                            <SelectItem key={division} value={division}>
-                              Division {division}
+                          {batches.map(batch => (
+                            <SelectItem key={batch} value={batch}>
+                              Batch {batch}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -398,7 +404,7 @@ const ResultsList = () => {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>PRN</TableHead>
-                        <TableHead>Division</TableHead>
+                        <TableHead>Batch</TableHead>
                         <TableHead>Quiz</TableHead>
                         <TableHead>Cheating Status</TableHead>
                         <TableHead className="text-right">Marks</TableHead>
@@ -412,7 +418,7 @@ const ResultsList = () => {
                           <TableRow key={result.id}>
                             <TableCell className="font-medium">{result.name}</TableCell>
                             <TableCell>{result.prn}</TableCell>
-                            <TableCell>Division {result.division}</TableCell>
+                            <TableCell>Batch {result.batch}</TableCell>
                             <TableCell>{getQuizTitle(result.quizId)}</TableCell>
                             <TableCell>
                               <Badge 

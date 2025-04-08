@@ -9,120 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      coding_questions: {
-        Row: {
-          constraints: string | null
-          created_at: string
-          created_by: string
-          description: string
-          difficulty: Database["public"]["Enums"]["difficulty_level"]
-          example: string | null
-          function_name: string
-          id: string
-          quiz_id: string | null
-          return_type: Database["public"]["Enums"]["return_type"]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          constraints?: string | null
-          created_at?: string
-          created_by: string
-          description: string
-          difficulty?: Database["public"]["Enums"]["difficulty_level"]
-          example?: string | null
-          function_name: string
-          id?: string
-          quiz_id?: string | null
-          return_type: Database["public"]["Enums"]["return_type"]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          constraints?: string | null
-          created_at?: string
-          created_by?: string
-          description?: string
-          difficulty?: Database["public"]["Enums"]["difficulty_level"]
-          example?: string | null
-          function_name?: string
-          id?: string
-          quiz_id?: string | null
-          return_type?: Database["public"]["Enums"]["return_type"]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "coding_questions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      driver_code: {
-        Row: {
-          c_code: string
-          coding_question_id: string | null
-          cpp_code: string
-          id: string
-        }
-        Insert: {
-          c_code: string
-          coding_question_id?: string | null
-          cpp_code: string
-          id?: string
-        }
-        Update: {
-          c_code?: string
-          coding_question_id?: string | null
-          cpp_code?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "driver_code_coding_question_id_fkey"
-            columns: ["coding_question_id"]
-            isOneToOne: false
-            referencedRelation: "coding_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      function_parameters: {
-        Row: {
-          coding_question_id: string | null
-          display_order: number
-          id: string
-          parameter_name: string
-          parameter_type: Database["public"]["Enums"]["parameter_type"]
-        }
-        Insert: {
-          coding_question_id?: string | null
-          display_order: number
-          id?: string
-          parameter_name: string
-          parameter_type: Database["public"]["Enums"]["parameter_type"]
-        }
-        Update: {
-          coding_question_id?: string | null
-          display_order?: number
-          id?: string
-          parameter_name?: string
-          parameter_type?: Database["public"]["Enums"]["parameter_type"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "function_parameters_coding_question_id_fkey"
-            columns: ["coding_question_id"]
-            isOneToOne: false
-            referencedRelation: "coding_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       options: {
         Row: {
           display_order: number
@@ -298,8 +184,8 @@ export type Database = {
       }
       student_results: {
         Row: {
+          batch: string | null
           cheating_status: string
-          division: string
           email: string
           id: string
           marks_scored: number
@@ -308,10 +194,11 @@ export type Database = {
           quiz_id: string
           submitted_at: string
           total_marks: number
+          year: string | null
         }
         Insert: {
+          batch?: string | null
           cheating_status?: string
-          division: string
           email: string
           id?: string
           marks_scored: number
@@ -320,10 +207,11 @@ export type Database = {
           quiz_id: string
           submitted_at?: string
           total_marks: number
+          year?: string | null
         }
         Update: {
+          batch?: string | null
           cheating_status?: string
-          division?: string
           email?: string
           id?: string
           marks_scored?: number
@@ -332,6 +220,7 @@ export type Database = {
           quiz_id?: string
           submitted_at?: string
           total_marks?: number
+          year?: string | null
         }
         Relationships: [
           {
@@ -339,44 +228,6 @@ export type Database = {
             columns: ["quiz_id"]
             isOneToOne: false
             referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      test_cases: {
-        Row: {
-          coding_question_id: string | null
-          display_order: number
-          id: string
-          input: string
-          is_hidden: boolean
-          output: string
-          points: number
-        }
-        Insert: {
-          coding_question_id?: string | null
-          display_order: number
-          id?: string
-          input: string
-          is_hidden?: boolean
-          output: string
-          points?: number
-        }
-        Update: {
-          coding_question_id?: string | null
-          display_order?: number
-          id?: string
-          input?: string
-          is_hidden?: boolean
-          output?: string
-          points?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "test_cases_coding_question_id_fkey"
-            columns: ["coding_question_id"]
-            isOneToOne: false
-            referencedRelation: "coding_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -396,9 +247,7 @@ export type Database = {
         Returns: Json
       }
       generate_quiz_results_pdf: {
-        Args: {
-          quiz_id: string
-        }
+        Args: { quiz_id: string }
         Returns: string
       }
     }
@@ -442,27 +291,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -470,20 +321,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -491,20 +344,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -512,21 +367,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -535,6 +392,47 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      difficulty_level: ["easy", "medium", "hard"],
+      parameter_type: [
+        "int",
+        "long",
+        "float",
+        "double",
+        "boolean",
+        "char",
+        "string",
+        "int[]",
+        "long[]",
+        "float[]",
+        "double[]",
+        "boolean[]",
+        "char[]",
+        "string[]",
+      ],
+      return_type: [
+        "int",
+        "long",
+        "float",
+        "double",
+        "boolean",
+        "char",
+        "string",
+        "void",
+        "int[]",
+        "long[]",
+        "float[]",
+        "double[]",
+        "boolean[]",
+        "char[]",
+        "string[]",
+      ],
+    },
+  },
+} as const

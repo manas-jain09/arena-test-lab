@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
@@ -37,7 +36,7 @@ serve(async (req) => {
       })
     }
 
-    const { quizId, filters } = await req.json()
+    const { quizId, filters, filteredResults } = await req.json()
 
     if (!quizId) {
       return new Response(JSON.stringify({ error: 'Quiz ID is required' }), {
@@ -65,70 +64,78 @@ serve(async (req) => {
       )
     }
 
-    // Get quiz results with filters (similar to frontend filtering logic)
-    let query = supabaseClient
-      .from('student_results')
-      .select('*')
-      .eq('quiz_id', quizId)
+    let results = []
 
-    // Apply division filter if provided
-    if (filters?.division && filters.division !== 'all') {
-      query = query.eq('division', filters.division)
-    }
+    // Use the filtered results directly if provided from the client
+    if (filteredResults && Array.isArray(filteredResults) && filteredResults.length > 0) {
+      results = filteredResults
+    } else {
+      // Otherwise fetch from database with filters (fallback)
+      let query = supabaseClient
+        .from('student_results')
+        .select('*')
+        .eq('quiz_id', quizId)
 
-    const { data: results, error: resultsError } = await query
+      // Apply batch filter if provided
+      if (filters?.batch && filters.batch !== 'all') {
+        query = query.eq('batch', filters.batch)
+      }
 
-    if (resultsError) {
-      console.error('Error fetching results:', resultsError)
-      return new Response(JSON.stringify({ error: 'Failed to fetch quiz results' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+      const { data: fetchedResults, error: resultsError } = await query
 
-    if (!results || results.length === 0) {
-      return new Response(JSON.stringify({ error: 'No results found for this quiz' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+      if (resultsError) {
+        console.error('Error fetching results:', resultsError)
+        return new Response(JSON.stringify({ error: 'Failed to fetch quiz results' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
-    // Apply search filter if provided
-    let filteredResults = [...results]
-    if (filters?.searchTerm) {
-      const term = filters.searchTerm.toLowerCase()
-      filteredResults = filteredResults.filter(
-        (result) =>
-          result.name.toLowerCase().includes(term) ||
-          result.prn.toLowerCase().includes(term) ||
-          result.email.toLowerCase().includes(term)
-      )
-    }
+      if (!fetchedResults || fetchedResults.length === 0) {
+        return new Response(JSON.stringify({ error: 'No results found for this quiz' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
-    // Apply sorting if provided
-    if (filters?.sortBy) {
-      filteredResults.sort((a, b) => {
-        let comparison = 0
+      results = fetchedResults
 
-        switch (filters.sortBy) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name)
-            break
-          case 'marks':
-            comparison = a.marks_scored - b.marks_scored
-            break
-          case 'percentage':
-            comparison = a.marks_scored / a.total_marks - b.marks_scored / b.total_marks
-            break
-          case 'date':
-            comparison = new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
-            break
-          default:
-            comparison = 0
-        }
+      // Apply search filter if provided
+      if (filters?.searchTerm) {
+        const term = filters.searchTerm.toLowerCase()
+        results = results.filter(
+          (result) =>
+            result.name.toLowerCase().includes(term) ||
+            result.prn.toLowerCase().includes(term) ||
+            result.email.toLowerCase().includes(term)
+        )
+      }
 
-        return filters.sortOrder === 'asc' ? comparison : -comparison
-      })
+      // Apply sorting if provided
+      if (filters?.sortBy) {
+        results.sort((a, b) => {
+          let comparison = 0
+
+          switch (filters.sortBy) {
+            case 'name':
+              comparison = a.name.localeCompare(b.name)
+              break
+            case 'marks':
+              comparison = a.marks_scored - b.marks_scored
+              break
+            case 'percentage':
+              comparison = a.marks_scored / a.total_marks - b.marks_scored / b.total_marks
+              break
+            case 'date':
+              comparison = new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
+              break
+            default:
+              comparison = 0
+          }
+
+          return filters.sortOrder === 'asc' ? comparison : -comparison
+        })
+      }
     }
 
     // Format dates (similar to frontend formatting)
@@ -151,14 +158,20 @@ serve(async (req) => {
 
     // Generate CSV content
     let csvContent = `Quiz Results for: ${quizData.title}\n`
-    csvContent += 'Name,PRN,Division,Cheating Status,Marks,Percentage,Submitted At\n'
+    csvContent += 'Name,PRN,Batch,Cheating Status,Marks,Percentage,Submitted At\n'
 
-    filteredResults.forEach((result) => {
+    results.forEach((result) => {
       const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2)
-      csvContent += `"${result.name}","${result.prn}","Division ${result.division}","${formatCheatingStatus(
-        result.cheating_status
-      )}","${result.marks_scored} / ${result.total_marks}","${percentage}%","${formatDate(
-        result.submitted_at
+      const batch = result.batch || '';
+      const submittedAt = result.submitted_at || result.submittedAt;
+      const marksScored = result.marks_scored || result.marksScored;
+      const totalMarks = result.total_marks || result.totalMarks;
+      const cheatingStatus = result.cheating_status || result.cheatingStatus;
+      
+      csvContent += `"${result.name}","${result.prn}","Batch ${batch}","${formatCheatingStatus(
+        cheatingStatus
+      )}","${marksScored} / ${totalMarks}","${percentage}%","${formatDate(
+        submittedAt
       )}"\n`
     })
 
