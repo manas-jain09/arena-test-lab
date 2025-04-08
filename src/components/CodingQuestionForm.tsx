@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1027,4 +1028,180 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           </CardHeader>
           <CardContent className="space-y-4">
             {questionData.testCases.map((testCase, index) => (
-              <Card key
+              <Card key={testCase.id} className="p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-medium text-sm">Test Case #{index + 1}</h4>
+                  <div className="flex space-x-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleTestCaseChange(testCase.id, 'isHidden', !testCase.isHidden)}
+                      title={testCase.isHidden ? "Make visible" : "Make hidden"}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
+                      {testCase.isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                    {index > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => moveTestCaseUp(index)}
+                      >
+                        <MoveUp className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {index < questionData.testCases.length - 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => moveTestCaseDown(index)}
+                      >
+                        <MoveDown className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeTestCase(testCase.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Input</Label>
+                      <div className="space-y-2">
+                        {questionData.parameters.map(param => {
+                          try {
+                            const inputObj = JSON.parse(testCase.input);
+                            return (
+                              <div key={param.id} className="grid grid-cols-3 gap-2 items-center">
+                                <Label className="col-span-1">{param.parameterName}</Label>
+                                <Input
+                                  className="col-span-2"
+                                  value={JSON.stringify(inputObj[param.parameterName])}
+                                  onChange={(e) => handleTestCaseInputChange(testCase.id, param.parameterName, e.target.value)}
+                                />
+                              </div>
+                            );
+                          } catch (e) {
+                            return (
+                              <div key={param.id} className="text-red-500">
+                                Error parsing JSON input. Please check the format.
+                              </div>
+                            );
+                          }
+                        })}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor={`output-${testCase.id}`}>Expected Output</Label>
+                      <Textarea
+                        id={`output-${testCase.id}`}
+                        value={testCase.output}
+                        onChange={(e) => handleTestCaseChange(testCase.id, 'output', e.target.value)}
+                        placeholder="Expected output of the function"
+                        rows={3}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`points-${testCase.id}`}>Points</Label>
+                      <Input
+                        id={`points-${testCase.id}`}
+                        type="number"
+                        min="1"
+                        value={testCase.points}
+                        onChange={(e) => handleTestCaseChange(testCase.id, 'points', parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`hidden-${testCase.id}`}
+                          checked={testCase.isHidden}
+                          onChange={(e) => handleTestCaseChange(testCase.id, 'isHidden', e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor={`hidden-${testCase.id}`}>Hidden test case</Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-2"
+              onClick={addTestCase}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Test Case
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Driver Code</CardTitle>
+            <CardDescription>
+              Generate driver code to test the function implementation
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-end mb-4">
+              <Button
+                type="button"
+                onClick={generateDriverCode}
+                disabled={loading || !questionData.parameters.length || !questionData.testCases.length}
+              >
+                Generate Driver Code
+              </Button>
+            </div>
+
+            <Tabs defaultValue="cpp" value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-2">
+                <TabsTrigger value="cpp">C++</TabsTrigger>
+                <TabsTrigger value="c">C</TabsTrigger>
+              </TabsList>
+              <TabsContent value="cpp" className="mt-0">
+                <Textarea
+                  value={driverCode.cppCode || ''}
+                  onChange={(e) => setDriverCode(prev => ({ ...prev, cppCode: e.target.value }))}
+                  placeholder="C++ driver code will appear here after generation"
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+              </TabsContent>
+              <TabsContent value="c" className="mt-0">
+                <Textarea
+                  value={driverCode.cCode || ''}
+                  onChange={(e) => setDriverCode(prev => ({ ...prev, cCode: e.target.value }))}
+                  placeholder="C driver code will appear here after generation"
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </form>
+    </div>
+  );
+};
+
+export default CodingQuestionForm;
