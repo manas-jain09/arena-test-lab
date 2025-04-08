@@ -35,6 +35,7 @@ const ResultsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(initialQuizId);
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
@@ -112,7 +113,8 @@ const ResultsList = () => {
         quizId: result.quiz_id,
         name: result.name,
         prn: result.prn,
-        batch: result.batch || '', // Use batch instead of division
+        batch: result.batch || '',
+        year: result.year || '',
         email: result.email,
         cheatingStatus: result.cheating_status,
         marksScored: result.marks_scored,
@@ -178,6 +180,7 @@ const ResultsList = () => {
       // Prepare filters to send to the edge function, including current UI filters
       const filters = {
         batch: selectedBatch === 'all' ? null : selectedBatch,
+        year: selectedYear === 'all' ? null : selectedYear,
         searchTerm: searchTerm || null,
         sortBy: sortBy || null,
         sortOrder,
@@ -236,6 +239,10 @@ const ResultsList = () => {
     filteredResults = filteredResults.filter(result => result.batch === selectedBatch);
   }
 
+  if (selectedYear && selectedYear !== 'all') {
+    filteredResults = filteredResults.filter(result => result.year === selectedYear);
+  }
+
   if (searchTerm) {
     const term = searchTerm.toLowerCase();
     filteredResults = filteredResults.filter(result => 
@@ -275,6 +282,7 @@ const ResultsList = () => {
   };
 
   const batches = Array.from(new Set(results.map(result => result.batch))).filter(Boolean);
+  const years = Array.from(new Set(results.map(result => result.year))).filter(Boolean);
 
   const getQuizTitle = (quizId: string): string => {
     const quiz = quizzes.find(q => q.id === quizId);
@@ -312,7 +320,7 @@ const ResultsList = () => {
                   <CardTitle>Filter Results</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div className="space-y-2">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -367,6 +375,26 @@ const ResultsList = () => {
                     </div>
                     <div className="space-y-2">
                       <Select 
+                        value={selectedYear || ""} 
+                        onValueChange={setSelectedYear}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.length > 0 && (
+                            <SelectItem value="all">All Years</SelectItem>
+                          )}
+                          {years.map(year => (
+                            <SelectItem key={year} value={year}>
+                              Year {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Select 
                         value={sortBy || ""} 
                         onValueChange={setSortBy}
                       >
@@ -405,6 +433,7 @@ const ResultsList = () => {
                         <TableHead>Name</TableHead>
                         <TableHead>PRN</TableHead>
                         <TableHead>Batch</TableHead>
+                        <TableHead>Year</TableHead>
                         <TableHead>Quiz</TableHead>
                         <TableHead>Cheating Status</TableHead>
                         <TableHead className="text-right">Marks</TableHead>
@@ -419,6 +448,7 @@ const ResultsList = () => {
                             <TableCell className="font-medium">{result.name}</TableCell>
                             <TableCell>{result.prn}</TableCell>
                             <TableCell>Batch {result.batch}</TableCell>
+                            <TableCell>Year {result.year}</TableCell>
                             <TableCell>{getQuizTitle(result.quizId)}</TableCell>
                             <TableCell>
                               <Badge 
@@ -444,7 +474,7 @@ const ResultsList = () => {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-6 text-gray-500">
+                          <TableCell colSpan={9} className="text-center py-6 text-gray-500">
                             No results found
                           </TableCell>
                         </TableRow>

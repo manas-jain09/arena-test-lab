@@ -68,9 +68,11 @@ serve(async (req) => {
 
     // Use the filtered results directly if provided from the client
     if (filteredResults && Array.isArray(filteredResults) && filteredResults.length > 0) {
+      console.log('Using filtered results from client:', filteredResults.length)
       results = filteredResults
     } else {
       // Otherwise fetch from database with filters (fallback)
+      console.log('Fetching results from database with filters')
       let query = supabaseClient
         .from('student_results')
         .select('*')
@@ -79,6 +81,11 @@ serve(async (req) => {
       // Apply batch filter if provided
       if (filters?.batch && filters.batch !== 'all') {
         query = query.eq('batch', filters.batch)
+      }
+
+      // Apply year filter if provided
+      if (filters?.year && filters.year !== 'all') {
+        query = query.eq('year', filters.year)
       }
 
       const { data: fetchedResults, error: resultsError } = await query
@@ -158,17 +165,18 @@ serve(async (req) => {
 
     // Generate CSV content
     let csvContent = `Quiz Results for: ${quizData.title}\n`
-    csvContent += 'Name,PRN,Batch,Cheating Status,Marks,Percentage,Submitted At\n'
+    csvContent += 'Name,PRN,Batch,Year,Cheating Status,Marks,Percentage,Submitted At\n'
 
     results.forEach((result) => {
       const percentage = ((result.marks_scored / result.total_marks) * 100).toFixed(2)
       const batch = result.batch || '';
+      const year = result.year || '';
       const submittedAt = result.submitted_at || result.submittedAt;
       const marksScored = result.marks_scored || result.marksScored;
       const totalMarks = result.total_marks || result.totalMarks;
       const cheatingStatus = result.cheating_status || result.cheatingStatus;
       
-      csvContent += `"${result.name}","${result.prn}","Batch ${batch}","${formatCheatingStatus(
+      csvContent += `"${result.name}","${result.prn}","Batch ${batch}","Year ${year}","${formatCheatingStatus(
         cheatingStatus
       )}","${marksScored} / ${totalMarks}","${percentage}%","${formatDate(
         submittedAt

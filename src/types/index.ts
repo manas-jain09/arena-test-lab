@@ -48,7 +48,8 @@ export type StudentResult = {
   quizId: string;
   name: string;
   prn: string;
-  batch: string;  // Changed from division to batch
+  batch: string;
+  year: string;
   email: string;
   cheatingStatus: 'flagged' | 'no-issues';
   marksScored: number;
