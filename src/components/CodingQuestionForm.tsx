@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { customClient } from '@/integrations/supabase/customClient';
 import { CodingQuestion, ParameterType, ReturnType, DifficultyLevel, FunctionParameter, TestCase, DriverCode } from '@/types';
 
 import { Button } from '@/components/ui/button';
@@ -91,7 +92,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
       if (!editMode || !id) return;
 
       try {
-        const { data: questionData, error: questionError } = await supabase
+        const { data: questionData, error: questionError } = await customClient
           .from('coding_questions')
           .select('*')
           .eq('id', id)
@@ -99,7 +100,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (questionError) throw questionError;
 
-        const { data: parametersData, error: parametersError } = await supabase
+        const { data: parametersData, error: parametersError } = await customClient
           .from('function_parameters')
           .select('*')
           .eq('coding_question_id', id)
@@ -107,7 +108,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (parametersError) throw parametersError;
 
-        const { data: testCasesData, error: testCasesError } = await supabase
+        const { data: testCasesData, error: testCasesError } = await customClient
           .from('test_cases')
           .select('*')
           .eq('coding_question_id', id)
@@ -115,7 +116,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (testCasesError) throw testCasesError;
 
-        const { data: driverCodeData, error: driverCodeError } = await supabase
+        const { data: driverCodeData, error: driverCodeError } = await customClient
           .from('driver_code')
           .select('*')
           .eq('coding_question_id', id)
@@ -204,7 +205,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         }
       });
 
-      const { data, error } = await supabase.rpc('generate_driver_code', {
+      const { data, error } = await customClient.rpc('generate_driver_code', {
         function_name: questionData.functionName,
         return_type: questionData.returnType,
         parameters: parametersData,
@@ -596,7 +597,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
       setLoading(true);
 
       if (editMode && id) {
-        const { error: questionError } = await supabase
+        const { error: questionError } = await customClient
           .from('coding_questions')
           .update({
             title: questionData.title,
@@ -613,14 +614,14 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
         if (questionError) throw questionError;
 
-        const { error: deleteParamsError } = await supabase
+        const { error: deleteParamsError } = await customClient
           .from('function_parameters')
           .delete()
           .eq('coding_question_id', id);
 
         if (deleteParamsError) throw deleteParamsError;
 
-        const { error: deleteTestCasesError } = await supabase
+        const { error: deleteTestCasesError } = await customClient
           .from('test_cases')
           .delete()
           .eq('coding_question_id', id);
@@ -628,7 +629,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         if (deleteTestCasesError) throw deleteTestCasesError;
 
         for (const param of questionData.parameters) {
-          const { error: paramError } = await supabase
+          const { error: paramError } = await customClient
             .from('function_parameters')
             .insert({
               coding_question_id: id,
@@ -641,7 +642,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         }
 
         for (const testCase of questionData.testCases) {
-          const { error: testCaseError } = await supabase
+          const { error: testCaseError } = await customClient
             .from('test_cases')
             .insert({
               coding_question_id: id,
@@ -656,7 +657,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         }
 
         if (driverCode.cCode && driverCode.cppCode) {
-          const { data: existingDriverCode, error: checkError } = await supabase
+          const { data: existingDriverCode, error: checkError } = await customClient
             .from('driver_code')
             .select('id')
             .eq('coding_question_id', id)
@@ -665,7 +666,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           if (checkError && checkError.code !== 'PGRST116') throw checkError;
 
           if (existingDriverCode) {
-            const { error: updateDriverCodeError } = await supabase
+            const { error: updateDriverCodeError } = await customClient
               .from('driver_code')
               .update({
                 c_code: driverCode.cCode,
@@ -675,7 +676,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
 
             if (updateDriverCodeError) throw updateDriverCodeError;
           } else {
-            const { error: insertDriverCodeError } = await supabase
+            const { error: insertDriverCodeError } = await customClient
               .from('driver_code')
               .insert({
                 coding_question_id: id,
@@ -692,7 +693,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           description: "Coding question updated successfully"
         });
       } else {
-        const { data: newQuestion, error: questionError } = await supabase
+        const { data: newQuestion, error: questionError } = await customClient
           .from('coding_questions')
           .insert({
             title: questionData.title,
@@ -711,7 +712,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         if (questionError) throw questionError;
 
         for (const param of questionData.parameters) {
-          const { error: paramError } = await supabase
+          const { error: paramError } = await customClient
             .from('function_parameters')
             .insert({
               coding_question_id: newQuestion.id,
@@ -724,7 +725,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         }
 
         for (const testCase of questionData.testCases) {
-          const { error: testCaseError } = await supabase
+          const { error: testCaseError } = await customClient
             .from('test_cases')
             .insert({
               coding_question_id: newQuestion.id,
@@ -739,7 +740,7 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
         }
 
         if (driverCode.cCode && driverCode.cppCode) {
-          const { error: driverCodeError } = await supabase
+          const { error: driverCodeError } = await customClient
             .from('driver_code')
             .insert({
               coding_question_id: newQuestion.id,
@@ -1026,175 +1027,4 @@ const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ editMode }) => 
           </CardHeader>
           <CardContent className="space-y-4">
             {questionData.testCases.map((testCase, index) => (
-              <Card key={testCase.id} className="border border-gray-200 shadow-sm">
-                <CardContent className="pt-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">Test Case {index + 1}</h3>
-                    <div className="flex space-x-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleTestCaseChange(testCase.id, 'isHidden', !testCase.isHidden)}
-                        title={testCase.isHidden ? "Make visible" : "Make hidden"}
-                      >
-                        {testCase.isHidden ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                      {index > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => moveTestCaseUp(index)}
-                        >
-                          <MoveUp className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {index < questionData.testCases.length - 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => moveTestCaseDown(index)}
-                        >
-                          <MoveDown className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeTestCase(testCase.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="mb-2 block">Input Parameters</Label>
-                      {questionData.parameters.map(param => (
-                        <div key={`${testCase.id}-${param.id}`} className="mb-2">
-                          <Label className="text-xs text-gray-500">{param.parameterName} ({param.parameterType})</Label>
-                          <Input
-                            value={(() => {
-                              try {
-                                const inputObj = JSON.parse(testCase.input);
-                                return inputObj[param.parameterName] || '';
-                              } catch (e) {
-                                return '';
-                              }
-                            })()}
-                            onChange={(e) => handleTestCaseInputChange(testCase.id, param.parameterName, e.target.value)}
-                            placeholder={`Enter ${param.parameterType} value`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Expected Output</Label>
-                    <Input
-                      value={testCase.output}
-                      onChange={(e) => handleTestCaseChange(testCase.id, 'output', e.target.value)}
-                      placeholder="Expected result"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Points</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={testCase.points}
-                      onChange={(e) => handleTestCaseChange(testCase.id, 'points', parseInt(e.target.value) || 1)}
-                      required
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full mt-2"
-              onClick={addTestCase}
-            >
-              <Plus className="h-4 w-4 mr-2" /> Add Test Case
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Driver Code</CardTitle>
-                <CardDescription>
-                  Preview the driver code that will be used to test the solution
-                </CardDescription>
-              </div>
-              <Button 
-                type="button"
-                onClick={generateDriverCode}
-                disabled={loading || !questionData.parameters.length || !questionData.testCases.length}
-              >
-                Generate Driver Code
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="cpp">C++</TabsTrigger>
-                <TabsTrigger value="c">C</TabsTrigger>
-              </TabsList>
-              <TabsContent value="cpp" className="mt-0">
-                <div className="relative">
-                  <Textarea
-                    className="font-mono text-sm h-96"
-                    value={driverCode.cppCode}
-                    rows={20}
-                    readOnly
-                  />
-                </div>
-              </TabsContent>
-              <TabsContent value="c" className="mt-0">
-                <div className="relative">
-                  <Textarea
-                    className="font-mono text-sm h-96"
-                    value={driverCode.cCode}
-                    rows={20}
-                    readOnly
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button 
-            className="bg-arena-red hover:bg-arena-darkRed" 
-            type="submit"
-            disabled={loading}
-          >
-            <Save className="h-4 w-4 mr-2" /> 
-            {editMode ? 'Update Question' : 'Create Question'}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-};
-
-export default CodingQuestionForm;
+              <Card key

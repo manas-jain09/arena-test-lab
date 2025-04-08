@@ -1,270 +1,304 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { CodingQuestion, DifficultyLevel } from '@/types';
-
+import { useNavigate } from 'react-router-dom';
+import { customClient } from '@/integrations/supabase/customClient';
+import { CodingQuestion, FunctionParameter, TestCase } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Terminal } from 'lucide-react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { 
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Eye, Plus, Search, Code, ArrowUpDown } from 'lucide-react';
 
 const CodingQuestionsList: React.FC = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [questions, setQuestions] = useState<CodingQuestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  
+  const [questions, setQuestions] = useState<CodingQuestion[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [parameters, setParameters] = useState<Record<string, FunctionParameter[]>>({});
+  const [testCases, setTestCases] = useState<Record<string, TestCase[]>>({});
+
   useEffect(() => {
-    fetchQuestions();
+    const fetchCodingQuestions = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all coding questions
+        const { data: questionsData, error: questionsError } = await customClient
+          .from('coding_questions')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (questionsError) {
+          throw questionsError;
+        }
+
+        // Prepare question objects
+        const parsedQuestions: CodingQuestion[] = questionsData.map(q => ({
+          id: q.id,
+          title: q.title,
+          description: q.description,
+          example: q.example,
+          constraints: q.constraints,
+          functionName: q.function_name,
+          returnType: q.return_type,
+          difficulty: q.difficulty,
+          quizId: q.quiz_id,
+          createdAt: q.created_at,
+          updatedAt: q.updated_at,
+          createdBy: q.created_by,
+          parameters: [],
+          testCases: []
+        }));
+
+        // If we have questions, fetch their parameters and test cases
+        if (parsedQuestions.length > 0) {
+          const questionIds = parsedQuestions.map(q => q.id);
+          
+          // Fetch all parameters for all questions
+          const { data: parametersData, error: parametersError } = await customClient
+            .from('function_parameters')
+            .select('*')
+            .in('coding_question_id', questionIds)
+            .order('display_order', { ascending: true });
+          
+          if (parametersError) {
+            throw parametersError;
+          }
+          
+          // Fetch all test cases for all questions
+          const { data: testCasesData, error: testCasesError } = await customClient
+            .from('test_cases')
+            .select('*')
+            .in('coding_question_id', questionIds)
+            .order('display_order', { ascending: true });
+          
+          if (testCasesError) {
+            throw testCasesError;
+          }
+          
+          // Group parameters by question
+          const paramsByQuestion: Record<string, FunctionParameter[]> = {};
+          parametersData.forEach(param => {
+            const questionId = param.coding_question_id;
+            if (!paramsByQuestion[questionId]) {
+              paramsByQuestion[questionId] = [];
+            }
+            paramsByQuestion[questionId].push({
+              id: param.id,
+              parameterName: param.parameter_name,
+              parameterType: param.parameter_type,
+              displayOrder: param.display_order
+            });
+          });
+          
+          // Group test cases by question
+          const testCasesByQuestion: Record<string, TestCase[]> = {};
+          testCasesData.forEach(testCase => {
+            const questionId = testCase.coding_question_id;
+            if (!testCasesByQuestion[questionId]) {
+              testCasesByQuestion[questionId] = [];
+            }
+            testCasesByQuestion[questionId].push({
+              id: testCase.id,
+              input: testCase.input,
+              output: testCase.output,
+              isHidden: testCase.is_hidden,
+              points: testCase.points,
+              displayOrder: testCase.display_order
+            });
+          });
+          
+          // Update the state
+          setParameters(paramsByQuestion);
+          setTestCases(testCasesByQuestion);
+          
+          // Assign parameters and test cases to questions
+          parsedQuestions.forEach(question => {
+            question.parameters = paramsByQuestion[question.id] || [];
+            question.testCases = testCasesByQuestion[question.id] || [];
+          });
+        }
+        
+        setQuestions(parsedQuestions);
+      } catch (error) {
+        console.error('Error fetching coding questions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCodingQuestions();
   }, []);
-  
-  const fetchQuestions = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('coding_questions')
-        .select(`
-          id,
-          title,
-          description,
-          example,
-          constraints,
-          function_name,
-          return_type,
-          difficulty,
-          quiz_id,
-          created_at,
-          updated_at,
-          created_by
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      // Now fetch parameters and test cases for each question
-      const questionsWithDetails = await Promise.all(data.map(async (question) => {
-        const { data: parametersData, error: parametersError } = await supabase
-          .from('function_parameters')
-          .select('*')
-          .eq('coding_question_id', question.id)
-          .order('display_order', { ascending: true });
-        
-        if (parametersError) throw parametersError;
-        
-        const { data: testCasesData, error: testCasesError } = await supabase
-          .from('test_cases')
-          .select('*')
-          .eq('coding_question_id', question.id)
-          .order('display_order', { ascending: true });
-        
-        if (testCasesError) throw testCasesError;
-        
-        return {
-          id: question.id,
-          title: question.title,
-          description: question.description,
-          example: question.example,
-          constraints: question.constraints,
-          functionName: question.function_name,
-          returnType: question.return_type,
-          difficulty: question.difficulty as DifficultyLevel,
-          quizId: question.quiz_id,
-          createdAt: question.created_at,
-          updatedAt: question.updated_at,
-          createdBy: question.created_by,
-          parameters: parametersData.map(param => ({
-            id: param.id,
-            parameterName: param.parameter_name,
-            parameterType: param.parameter_type,
-            displayOrder: param.display_order
-          })),
-          testCases: testCasesData.map(testCase => ({
-            id: testCase.id,
-            input: testCase.input,
-            output: testCase.output,
-            isHidden: testCase.is_hidden,
-            points: testCase.points,
-            displayOrder: testCase.display_order
-          }))
-        };
-      }));
-      
-      setQuestions(questionsWithDetails);
-    } catch (error) {
-      console.error('Error fetching coding questions:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load coding questions. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this coding question? This action cannot be undone.')) {
+      return;
     }
-  };
-  
-  const handleDelete = async (questionId: string) => {
-    if (!confirm('Are you sure you want to delete this question?')) return;
     
     try {
-      setLoading(true);
+      // First delete all related records
+      await customClient.from('test_cases').delete().eq('coding_question_id', id);
+      await customClient.from('function_parameters').delete().eq('coding_question_id', id);
+      await customClient.from('driver_code').delete().eq('coding_question_id', id);
       
-      const { error } = await supabase
-        .from('coding_questions')
-        .delete()
-        .eq('id', questionId);
+      // Then delete the question itself
+      const { error } = await customClient.from('coding_questions').delete().eq('id', id);
       
       if (error) throw error;
       
-      setQuestions(questions.filter(q => q.id !== questionId));
+      // Update the UI to remove the deleted question
+      setQuestions(questions.filter(question => question.id !== id));
       
-      toast({
-        title: 'Success',
-        description: 'Coding question deleted successfully'
-      });
+      // Optional: Add a toast notification here
     } catch (error) {
       console.error('Error deleting coding question:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete coding question. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+      // Optional: Add a toast notification here
     }
   };
-  
-  const filteredQuestions = searchQuery
-    ? questions.filter(question => 
-        question.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        question.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        question.functionName.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : questions;
-  
+
+  const filteredQuestions = questions.filter(question => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      question.title.toLowerCase().includes(searchLower) ||
+      question.description.toLowerCase().includes(searchLower) ||
+      question.functionName.toLowerCase().includes(searchLower) ||
+      question.difficulty.toLowerCase().includes(searchLower)
+    );
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Coding Questions</h1>
         <Button 
           className="bg-arena-red hover:bg-arena-darkRed"
-          onClick={() => navigate('/admin/coding-questions/new')}
+          onClick={() => navigate('/admin/coding-questions/create')}
         >
-          <Plus className="mr-2 h-4 w-4" /> Add New Question
+          <Plus className="h-4 w-4 mr-2" /> Add New
         </Button>
       </div>
       
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+        <CardHeader>
+          <CardTitle>Manage Coding Questions</CardTitle>
+          <CardDescription>
+            View, create, edit, and delete coding questions for your quizzes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center mb-4">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 type="search"
                 placeholder="Search questions..."
                 className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
           
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Function</TableHead>
-                  <TableHead>Difficulty</TableHead>
-                  <TableHead>Parameters</TableHead>
-                  <TableHead>Test Cases</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+          {loading ? (
+            <div className="py-20 text-center">
+              <p className="text-gray-500">Loading coding questions...</p>
+            </div>
+          ) : filteredQuestions.length === 0 ? (
+            <div className="py-20 text-center">
+              <Code className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">
+                {searchTerm ? 'No matching coding questions found' : 'No coding questions yet'}
+              </p>
+              {searchTerm ? (
+                <Button 
+                  variant="link" 
+                  onClick={() => setSearchTerm('')}
+                  className="mt-2"
+                >
+                  Clear search
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/admin/coding-questions/create')}
+                  className="mt-4"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Create your first coding question
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-4">
-                      Loading...
-                    </TableCell>
+                    <TableHead className="w-[300px]">
+                      <Button variant="ghost" className="p-0 font-semibold flex items-center">
+                        Title <ArrowUpDown className="ml-1 h-3 w-3" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>Function</TableHead>
+                    <TableHead>
+                      <Button variant="ghost" className="p-0 font-semibold flex items-center">
+                        Difficulty <ArrowUpDown className="ml-1 h-3 w-3" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">Test Cases</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : filteredQuestions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-4">
-                      {searchQuery
-                        ? 'No questions match your search criteria'
-                        : 'No coding questions found. Create your first question!'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredQuestions.map((question) => (
-                    <TableRow key={question.id}>
-                      <TableCell className="font-medium max-w-[200px] truncate">
-                        {question.title}
-                      </TableCell>
+                </TableHeader>
+                <TableBody>
+                  {filteredQuestions.map((question) => (
+                    <TableRow key={question.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/admin/coding-questions/${question.id}`)}>
+                      <TableCell className="font-medium">{question.title}</TableCell>
                       <TableCell className="font-mono text-sm">
-                        {question.functionName}
+                        {question.functionName}({question.parameters.map(p => p.parameterType).join(', ')})
                       </TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
                           question.difficulty === 'easy' 
-                            ? 'bg-green-100 text-green-800' 
+                            ? 'bg-green-100 text-green-800'
                             : question.difficulty === 'medium'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
                         }`}>
                           {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
                         </span>
                       </TableCell>
-                      <TableCell>{question.parameters.length}</TableCell>
-                      <TableCell>{question.testCases.length}</TableCell>
+                      <TableCell className="text-center">
+                        {question.testCases.length}
+                      </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/admin/coding-questions/${question.id}`)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/admin/coding-questions/${question.id}/edit`)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(question.id)} className="text-red-600">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/coding-questions/${question.id}`);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

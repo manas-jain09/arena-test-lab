@@ -1,138 +1,137 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { CodingQuestion, DifficultyLevel, ParameterType, ReturnType } from '@/types';
-
+import { customClient } from '@/integrations/supabase/customClient';
+import { CodingQuestion, FunctionParameter, TestCase, DriverCode } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, Download, Code, Eye, EyeOff } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Edit, Terminal } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 const CodingQuestionView: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [question, setQuestion] = useState<CodingQuestion | null>(null);
+  
   const [loading, setLoading] = useState(true);
+  const [question, setQuestion] = useState<CodingQuestion | null>(null);
+  const [parameters, setParameters] = useState<FunctionParameter[]>([]);
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [driverCode, setDriverCode] = useState<DriverCode | null>(null);
   const [activeTab, setActiveTab] = useState('cpp');
 
   useEffect(() => {
-    if (!id) return;
-    fetchQuestionDetails(id);
-  }, [id]);
-
-  const fetchQuestionDetails = async (questionId: string) => {
-    try {
-      setLoading(true);
-      
-      // Fetch question basic info
-      const { data: questionData, error: questionError } = await supabase
-        .from('coding_questions')
-        .select('*')
-        .eq('id', questionId)
-        .single();
-      
-      if (questionError) throw questionError;
-      
-      // Fetch parameters
-      const { data: parametersData, error: parametersError } = await supabase
-        .from('function_parameters')
-        .select('*')
-        .eq('coding_question_id', questionId)
-        .order('display_order', { ascending: true });
-      
-      if (parametersError) throw parametersError;
-      
-      // Fetch test cases
-      const { data: testCasesData, error: testCasesError } = await supabase
-        .from('test_cases')
-        .select('*')
-        .eq('coding_question_id', questionId)
-        .order('display_order', { ascending: true });
-      
-      if (testCasesError) throw testCasesError;
-      
-      // Fetch driver code if available
-      const { data: driverCodeData, error: driverCodeError } = await supabase
-        .from('driver_code')
-        .select('*')
-        .eq('coding_question_id', questionId)
-        .single();
-      
-      // It's okay if driver code is not found
-      const driverCode = driverCodeError && driverCodeError.code === 'PGRST116'
-        ? undefined
-        : driverCodeError
-          ? undefined
-          : {
-              cCode: driverCodeData.c_code,
-              cppCode: driverCodeData.cpp_code
-            };
-      
-      // Combine all data
-      const fullQuestion: CodingQuestion = {
-        id: questionData.id,
-        title: questionData.title,
-        description: questionData.description,
-        example: questionData.example,
-        constraints: questionData.constraints,
-        functionName: questionData.function_name,
-        returnType: questionData.return_type as ReturnType,
-        difficulty: questionData.difficulty as DifficultyLevel,
-        quizId: questionData.quiz_id,
-        createdAt: questionData.created_at,
-        updatedAt: questionData.updated_at,
-        createdBy: questionData.created_by,
-        parameters: parametersData.map(param => ({
+    const fetchQuestionDetails = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch the coding question
+        const { data: questionData, error: questionError } = await customClient
+          .from('coding_questions')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (questionError) throw questionError;
+        
+        // Fetch function parameters
+        const { data: paramsData, error: paramsError } = await customClient
+          .from('function_parameters')
+          .select('*')
+          .eq('coding_question_id', id)
+          .order('display_order', { ascending: true });
+        
+        if (paramsError) throw paramsError;
+        
+        // Fetch test cases
+        const { data: testCasesData, error: testCasesError } = await customClient
+          .from('test_cases')
+          .select('*')
+          .eq('coding_question_id', id)
+          .order('display_order', { ascending: true });
+        
+        if (testCasesError) throw testCasesError;
+        
+        // Fetch driver code
+        const { data: driverCodeData, error: driverCodeError } = await customClient
+          .from('driver_code')
+          .select('*')
+          .eq('coding_question_id', id)
+          .single();
+        
+        // It's okay if there's no driver code yet
+        if (driverCodeError && driverCodeError.code !== 'PGRST116') {
+          console.error('Error fetching driver code:', driverCodeError);
+        }
+        
+        // Map the data to our types
+        const question: CodingQuestion = {
+          id: questionData.id,
+          title: questionData.title,
+          description: questionData.description,
+          example: questionData.example,
+          constraints: questionData.constraints,
+          functionName: questionData.function_name,
+          returnType: questionData.return_type,
+          difficulty: questionData.difficulty,
+          quizId: questionData.quiz_id,
+          createdAt: questionData.created_at,
+          updatedAt: questionData.updated_at,
+          createdBy: questionData.created_by,
+          parameters: [],
+          testCases: []
+        };
+        
+        const parameters: FunctionParameter[] = paramsData.map(param => ({
           id: param.id,
           parameterName: param.parameter_name,
-          parameterType: param.parameter_type as ParameterType,
+          parameterType: param.parameter_type,
           displayOrder: param.display_order
-        })),
-        testCases: testCasesData.map(testCase => ({
+        }));
+        
+        const testCases: TestCase[] = testCasesData.map(testCase => ({
           id: testCase.id,
           input: testCase.input,
           output: testCase.output,
           isHidden: testCase.is_hidden,
           points: testCase.points,
           displayOrder: testCase.display_order
-        })),
-        driverCode
-      };
-      
-      setQuestion(fullQuestion);
-    } catch (error) {
-      console.error('Error fetching coding question details:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load coding question details. Please try again.',
-        variant: 'destructive'
-      });
-      navigate('/admin/coding-questions');
-    } finally {
-      setLoading(false);
+        }));
+        
+        const driverCode = driverCodeData ? {
+          cCode: driverCodeData.c_code,
+          cppCode: driverCodeData.cpp_code
+        } : null;
+        
+        setQuestion(question);
+        setParameters(parameters);
+        setTestCases(testCases);
+        setDriverCode(driverCode);
+      } catch (error) {
+        console.error('Error fetching coding question details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (id) {
+      fetchQuestionDetails();
     }
-  };
+  }, [id]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-10">
-        <p className="text-gray-500">Loading question details...</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p>Loading question details...</p>
       </div>
     );
   }
 
   if (!question) {
     return (
-      <div className="flex flex-col items-center justify-center py-10">
-        <p className="text-gray-500">Question not found</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => navigate('/admin/coding-questions')}
-        >
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <p className="text-lg text-gray-600">Question not found</p>
+        <Button onClick={() => navigate('/admin/coding-questions')}>
           Back to Coding Questions
         </Button>
       </div>
@@ -151,16 +150,14 @@ const CodingQuestionView: React.FC = () => {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold truncate max-w-[600px]">
-            {question.title}
-          </h1>
+          <h1 className="text-2xl font-bold">{question.title}</h1>
         </div>
         <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/admin/coding-questions/${question.id}/edit`)}
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/admin/coding-questions/edit/${id}`)}
           >
-            <Edit className="h-4 w-4 mr-2" /> Edit Question
+            Edit Question
           </Button>
         </div>
       </div>
@@ -173,159 +170,42 @@ const CodingQuestionView: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="prose max-w-none">
-                <p className="whitespace-pre-wrap">{question.description}</p>
+                <p className="text-gray-700 whitespace-pre-line">{question.description}</p>
+                
+                {question.example && (
+                  <>
+                    <h3 className="text-lg font-medium mt-4">Example</h3>
+                    <pre className="bg-gray-50 p-4 rounded border">{question.example}</pre>
+                  </>
+                )}
+                
+                {question.constraints && (
+                  <>
+                    <h3 className="text-lg font-medium mt-4">Constraints</h3>
+                    <p className="text-gray-700 whitespace-pre-line">{question.constraints}</p>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
-
-          {question.example && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Example</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <p className="whitespace-pre-wrap">{question.example}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {question.constraints && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Constraints</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <p className="whitespace-pre-wrap">{question.constraints}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <Card>
             <CardHeader>
               <CardTitle>Function Signature</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="font-mono text-sm bg-gray-100 p-4 rounded-md">
-                <div className="mb-2">C++:</div>
-                {question.returnType === 'string' ? 'string' : 
-                 question.returnType.includes('[]') ? 
-                 `vector<${question.returnType.replace('[]', '')}>` : 
-                 question.returnType} {question.functionName}(
-                {question.parameters.map((param, index) => (
-                  <span key={param.id}>
-                    {param.parameterType === 'string' ? 'string' : 
-                     param.parameterType.includes('[]') ? 
-                     `vector<${param.parameterType.replace('[]', '')}>` : 
-                     param.parameterType} {param.parameterName}
-                    {index < question.parameters.length - 1 ? ', ' : ''}
-                  </span>
-                ))}
-                );
-                
-                <div className="mt-4 mb-2">C:</div>
-                {question.returnType} {question.functionName}(
-                {question.parameters.map((param, index) => {
-                  const isArray = param.parameterType.includes('[]');
-                  const baseType = param.parameterType.replace('[]', '');
-                  return (
+              <div className="font-mono bg-gray-50 p-4 rounded border overflow-x-auto">
+                <code>
+                  {question.returnType} {question.functionName}(
+                  {parameters.map((param, index) => (
                     <span key={param.id}>
-                      {isArray ? 
-                        (baseType === 'string' ? 
-                          `char** ${param.parameterName}, int ${param.parameterName}_size` : 
-                          `${baseType}* ${param.parameterName}, int ${param.parameterName}_size`
-                        ) : 
-                        (param.parameterType === 'string' ? 
-                          `char* ${param.parameterName}` : 
-                          `${param.parameterType} ${param.parameterName}`
-                        )
-                      }
-                      {index < question.parameters.length - 1 ? ', ' : ''}
+                      {param.parameterType} {param.parameterName}
+                      {index < parameters.length - 1 ? ', ' : ''}
                     </span>
-                  );
-                })}
-                );
+                  ))}
+                  )
+                </code>
               </div>
-            </CardContent>
-          </Card>
-
-          {question.driverCode && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Driver Code</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="cpp">C++</TabsTrigger>
-                    <TabsTrigger value="c">C</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="cpp" className="mt-0">
-                    <pre className="font-mono text-sm bg-gray-100 p-4 rounded-md overflow-auto max-h-[500px]">
-                      {question.driverCode.cppCode}
-                    </pre>
-                  </TabsContent>
-                  <TabsContent value="c" className="mt-0">
-                    <pre className="font-mono text-sm bg-gray-100 p-4 rounded-md overflow-auto max-h-[500px]">
-                      {question.driverCode.cCode}
-                    </pre>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Question Info</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="space-y-4">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Difficulty</dt>
-                  <dd className="mt-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      question.difficulty === 'easy' 
-                        ? 'bg-green-100 text-green-800' 
-                        : question.difficulty === 'medium'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                    }`}>
-                      {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
-                    </span>
-                  </dd>
-                </div>
-                
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Function Name</dt>
-                  <dd className="mt-1 font-mono">{question.functionName}</dd>
-                </div>
-                
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Return Type</dt>
-                  <dd className="mt-1 font-mono">{question.returnType}</dd>
-                </div>
-                
-                {question.parameters.length > 0 && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Parameters</dt>
-                    <dd className="mt-1">
-                      <ul className="space-y-1">
-                        {question.parameters.map((param) => (
-                          <li key={param.id} className="text-sm font-mono">
-                            {param.parameterName}: {param.parameterType}
-                          </li>
-                        ))}
-                      </ul>
-                    </dd>
-                  </div>
-                )}
-              </dl>
             </CardContent>
           </Card>
 
@@ -335,42 +215,34 @@ const CodingQuestionView: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {question.testCases.map((testCase, index) => {
-                  let inputObj;
+                {testCases.map((testCase, index) => {
+                  // Parse the input JSON for display
+                  let inputDisplay = 'Invalid input format';
                   try {
-                    inputObj = JSON.parse(testCase.input);
+                    const inputObj = JSON.parse(testCase.input);
+                    inputDisplay = JSON.stringify(inputObj, null, 2);
                   } catch (e) {
-                    inputObj = { error: "Invalid JSON" };
+                    console.error('Error parsing test case input:', e);
                   }
                   
                   return (
-                    <div key={testCase.id} className="border rounded-md p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-sm font-medium">Test Case {index + 1}</h3>
-                        <div className="flex items-center">
-                          {testCase.isHidden && (
-                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-                              Hidden
-                            </span>
-                          )}
-                          <span className="text-xs ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                            {testCase.points} point{testCase.points !== 1 ? 's' : ''}
-                          </span>
-                        </div>
+                    <div key={testCase.id} className="p-4 border rounded-md relative">
+                      <div className="absolute top-2 right-2">
+                        {testCase.isHidden ? (
+                          <EyeOff size={16} className="text-gray-400" title="Hidden from students" />
+                        ) : (
+                          <Eye size={16} className="text-gray-400" title="Visible to students" />
+                        )}
                       </div>
-                      
-                      <div className="text-sm">
-                        <div className="mb-2">
-                          <span className="font-medium">Input:</span>
-                          <pre className="bg-gray-50 mt-1 p-2 rounded-md text-xs overflow-auto">
-                            {JSON.stringify(inputObj, null, 2)}
-                          </pre>
+                      <h4 className="font-medium text-sm mb-2">Test Case {index + 1} ({testCase.points} point{testCase.points !== 1 ? 's' : ''})</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="text-xs text-gray-500 mb-1">Input</h5>
+                          <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto">{inputDisplay}</pre>
                         </div>
                         <div>
-                          <span className="font-medium">Expected Output:</span>
-                          <pre className="bg-gray-50 mt-1 p-2 rounded-md text-xs overflow-auto">
-                            {testCase.output}
-                          </pre>
+                          <h5 className="text-xs text-gray-500 mb-1">Expected Output</h5>
+                          <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto">{testCase.output}</pre>
                         </div>
                       </div>
                     </div>
@@ -379,6 +251,108 @@ const CodingQuestionView: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+        
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-2">
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Difficulty</dt>
+                  <dd className="mt-1">
+                    <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
+                      question.difficulty === 'easy' 
+                        ? 'bg-green-100 text-green-800'
+                        : question.difficulty === 'medium'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
+                    </span>
+                  </dd>
+                </div>
+                
+                {question.quizId && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Associated Quiz</dt>
+                    <dd className="mt-1 text-sm">{question.quizId}</dd>
+                  </div>
+                )}
+                
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Created</dt>
+                  <dd className="mt-1 text-sm">{new Date(question.createdAt).toLocaleString()}</dd>
+                </div>
+                
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                  <dd className="mt-1 text-sm">{new Date(question.updatedAt).toLocaleString()}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+          
+          {driverCode && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Code className="h-4 w-4 mr-2" /> 
+                  Driver Code
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="cpp" className="flex-1">C++</TabsTrigger>
+                    <TabsTrigger value="c" className="flex-1">C</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="cpp" className="m-0">
+                    <div className="relative overflow-hidden">
+                      <Textarea
+                        className="font-mono text-xs h-64 p-4 resize-none"
+                        value={driverCode.cppCode}
+                        readOnly
+                      />
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                        onClick={() => {
+                          navigator.clipboard.writeText(driverCode.cppCode);
+                          // Optional: Add a toast notification here
+                        }}
+                      >
+                        <Download className="h-3 w-3 mr-1" /> Copy
+                      </Button>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="c" className="m-0">
+                    <div className="relative overflow-hidden">
+                      <Textarea
+                        className="font-mono text-xs h-64 p-4 resize-none"
+                        value={driverCode.cCode}
+                        readOnly
+                      />
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                        onClick={() => {
+                          navigator.clipboard.writeText(driverCode.cCode);
+                          // Optional: Add a toast notification here
+                        }}
+                      >
+                        <Download className="h-3 w-3 mr-1" /> Copy
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

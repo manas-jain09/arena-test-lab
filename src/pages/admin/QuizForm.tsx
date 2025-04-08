@@ -389,7 +389,8 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
       parameters: [...(prev.parameters || []), {
         id: Date.now().toString(),
         parameterName: '',
-        parameterType: 'string' as ParameterType
+        parameterType: 'string' as ParameterType,
+        displayOrder: (prev.parameters || []).length
       }]
     }));
   };
@@ -409,7 +410,8 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
         input: '',
         output: '',
         points: 1,
-        isHidden: false
+        isHidden: false,
+        displayOrder: (prev.testCases || []).length
       }]
     }));
   };
