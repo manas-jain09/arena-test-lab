@@ -229,9 +229,15 @@ const CodingQuestionView: React.FC = () => {
                     <div key={testCase.id} className="p-4 border rounded-md relative">
                       <div className="absolute top-2 right-2">
                         {testCase.isHidden ? (
-                          <EyeOff size={16} className="text-gray-400" title="Hidden from students" />
+                          <span className="flex items-center">
+                            <EyeOff size={16} className="text-gray-400" />
+                            <span className="text-xs text-gray-400 ml-1">Hidden from students</span>
+                          </span>
                         ) : (
-                          <Eye size={16} className="text-gray-400" title="Visible to students" />
+                          <span className="flex items-center">
+                            <Eye size={16} className="text-gray-400" />
+                            <span className="text-xs text-gray-400 ml-1">Visible to students</span>
+                          </span>
                         )}
                       </div>
                       <h4 className="font-medium text-sm mb-2">Test Case {index + 1} ({testCase.points} point{testCase.points !== 1 ? 's' : ''})</h4>

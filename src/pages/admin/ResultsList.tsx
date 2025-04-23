@@ -118,6 +118,56 @@ const ResultsList = () => {
     enabled: !!user
   });
 
+  const getFilteredResults = () => {
+    let filtered = [...results];
+
+    if (selectedBatch && selectedBatch !== 'all') {
+      filtered = filtered.filter(result => result.batch === selectedBatch);
+    }
+
+    if (selectedYear && selectedYear !== 'all') {
+      filtered = filtered.filter(result => result.year === selectedYear);
+    }
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(result => 
+        result.name.toLowerCase().includes(term) ||
+        result.prn.toLowerCase().includes(term) ||
+        result.email.toLowerCase().includes(term)
+      );
+    }
+
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        let comparison = 0;
+
+        switch (sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'marks':
+            comparison = a.marksScored - b.marksScored;
+            break;
+          case 'percentage':
+            comparison = (a.marksScored / a.totalMarks) - (b.marksScored / b.totalMarks);
+            break;
+          case 'date':
+            comparison = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+            break;
+          default:
+            comparison = 0;
+        }
+
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredResults = getFilteredResults();
+
   useEffect(() => {
     if (!filteredResults.length) {
       setAnswerDetails({});
@@ -275,50 +325,6 @@ const ResultsList = () => {
       setIsGeneratingCsv(false);
     }
   };
-
-  let filteredResults = [...results];
-
-  if (selectedBatch && selectedBatch !== 'all') {
-    filteredResults = filteredResults.filter(result => result.batch === selectedBatch);
-  }
-
-  if (selectedYear && selectedYear !== 'all') {
-    filteredResults = filteredResults.filter(result => result.year === selectedYear);
-  }
-
-  if (searchTerm) {
-    const term = searchTerm.toLowerCase();
-    filteredResults = filteredResults.filter(result => 
-      result.name.toLowerCase().includes(term) ||
-      result.prn.toLowerCase().includes(term) ||
-      result.email.toLowerCase().includes(term)
-    );
-  }
-
-  if (sortBy) {
-    filteredResults.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'marks':
-          comparison = a.marksScored - b.marksScored;
-          break;
-        case 'percentage':
-          comparison = (a.marksScored / a.totalMarks) - (b.marksScored / b.totalMarks);
-          break;
-        case 'date':
-          comparison = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-          break;
-        default:
-          comparison = 0;
-      }
-
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-  }
 
   const toggleSortOrder = () => {
     setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');

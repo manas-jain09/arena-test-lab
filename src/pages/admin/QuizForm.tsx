@@ -416,26 +416,18 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
     }));
   };
 
+  const removeTestCase = (testCaseId: string) => {
+    setNewCodingQuestion(prev => ({
+      ...prev,
+      testCases: prev.testCases?.filter(testCase => testCase.id !== testCaseId) || []
+    }));
+  };
+
   const handleTestCaseChange = (testCaseId: string, field: string, value: any) => {
     setNewCodingQuestion(prev => ({
       ...prev,
       testCases: prev.testCases?.map(testCase => 
         testCase.id === testCaseId ? { ...testCase, [field]: value } : testCase
-      ) || []
-    }));
-  };
-
-  const handleTestCaseParameterChange = (testCaseId: string, paramIndex: number, value: string) => {
-    setNewCodingQuestion(prev => ({
-      ...prev,
-      testCases: prev.testCases?.map(testCase => 
-        testCase.id === testCaseId ? {
-          ...testCase,
-          input: testCase.input ? JSON.stringify({
-            ...JSON.parse(testCase.input),
-            [`param${paramIndex + 1}`]: value
-          }) : JSON.stringify({ [`param${paramIndex + 1}`]: value })
-        } : testCase
       ) || []
     }));
   };
