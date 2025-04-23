@@ -187,27 +187,36 @@ export type Database = {
       }
       student_answers: {
         Row: {
+          correct_option_text: string | null
           created_at: string
           id: string
           is_correct: boolean | null
+          prn: string
           question_id: string
           selected_option_id: string | null
+          selected_option_text: string | null
           student_result_id: string
         }
         Insert: {
+          correct_option_text?: string | null
           created_at?: string
           id?: string
           is_correct?: boolean | null
+          prn?: string
           question_id: string
           selected_option_id?: string | null
+          selected_option_text?: string | null
           student_result_id: string
         }
         Update: {
+          correct_option_text?: string | null
           created_at?: string
           id?: string
           is_correct?: boolean | null
+          prn?: string
           question_id?: string
           selected_option_id?: string | null
+          selected_option_text?: string | null
           student_result_id?: string
         }
         Relationships: [

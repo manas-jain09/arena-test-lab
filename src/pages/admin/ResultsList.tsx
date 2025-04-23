@@ -181,41 +181,17 @@ const ResultsList = () => {
       for (const result of filteredResults) {
         const { data: sa, error: saError } = await supabase
           .from('student_answers')
-          .select('*')
+          .select('question_id, selected_option_text, correct_option_text')
           .eq('student_result_id', result.id);
 
         if (saError || !sa) continue;
 
-        const perAnswer: any[] = [];
+        const perAnswer: any[] = sa.map((ans: any) => ({
+          questionId: ans.question_id,
+          selectedOption: ans.selected_option_text || '',
+          correctOption: ans.correct_option_text || '',
+        }));
 
-        for (const ans of sa) {
-          let selectedOptionText = '';
-          if (ans.selected_option_id) {
-            const { data: so, error: soError } = await supabase
-              .from('options')
-              .select('text')
-              .eq('id', ans.selected_option_id)
-              .maybeSingle();
-            if (!soError && so?.text) selectedOptionText = so.text;
-          }
-
-          let correctOptionText = '';
-          {
-            const { data: co, error: coError } = await supabase
-              .from('options')
-              .select('text')
-              .eq('question_id', ans.question_id)
-              .eq('is_correct', true)
-              .maybeSingle();
-            if (!coError && co?.text) correctOptionText = co.text;
-          }
-
-          perAnswer.push({
-            questionId: ans.question_id,
-            selectedOption: selectedOptionText,
-            correctOption: correctOptionText,
-          });
-        }
         batch[result.id] = perAnswer;
       }
       setAnswerDetails(batch);
@@ -528,11 +504,10 @@ const ResultsList = () => {
                                   <ul className="text-xs text-gray-800 space-y-1">
                                     {(answerDetails[result.id] || []).map((a, i) => (
                                       <li key={a.questionId || i}>
-                                        {a.selectedOption ? (
-                                          <span>{a.selectedOption}</span>
-                                        ) : (
-                                          <span className="text-gray-400">Not Answered</span>
-                                        )}
+                                        {a.selectedOption
+                                          ? <span>{a.selectedOption}</span>
+                                          : <span className="text-gray-400">Not Answered</span>
+                                        }
                                       </li>
                                     ))}
                                   </ul>
@@ -546,11 +521,10 @@ const ResultsList = () => {
                                   <ul className="text-xs text-gray-800 space-y-1">
                                     {(answerDetails[result.id] || []).map((a, i) => (
                                       <li key={a.questionId || i}>
-                                        {a.correctOption ? (
-                                          <span>{a.correctOption}</span>
-                                        ) : (
-                                          <span className="text-gray-400">N/A</span>
-                                        )}
+                                        {a.correctOption
+                                          ? <span>{a.correctOption}</span>
+                                          : <span className="text-gray-400">N/A</span>
+                                        }
                                       </li>
                                     ))}
                                   </ul>
