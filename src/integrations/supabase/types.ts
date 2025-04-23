@@ -189,6 +189,7 @@ export type Database = {
         Row: {
           correct_option_text: string | null
           created_at: string
+          display_order: number | null
           id: string
           is_correct: boolean | null
           prn: string
@@ -200,6 +201,7 @@ export type Database = {
         Insert: {
           correct_option_text?: string | null
           created_at?: string
+          display_order?: number | null
           id?: string
           is_correct?: boolean | null
           prn?: string
@@ -211,6 +213,7 @@ export type Database = {
         Update: {
           correct_option_text?: string | null
           created_at?: string
+          display_order?: number | null
           id?: string
           is_correct?: boolean | null
           prn?: string

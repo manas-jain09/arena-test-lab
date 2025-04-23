@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -181,16 +182,20 @@ const ResultsList = () => {
       for (const result of filteredResults) {
         const { data: sa, error: saError } = await supabase
           .from('student_answers')
-          .select('question_id, selected_option_text, correct_option_text')
+          .select('question_id, selected_option_text, correct_option_text, display_order')
           .eq('student_result_id', result.id);
 
         if (saError || !sa) continue;
 
-        const perAnswer: any[] = sa.map((ans: any) => ({
-          questionId: ans.question_id,
-          selectedOption: ans.selected_option_text || '',
-          correctOption: ans.correct_option_text || '',
-        }));
+        // Sort by display_order (lowest to highest)
+        const perAnswer: any[] = (sa as any[])
+          .sort((a, b) => (a.display_order ?? 9999) - (b.display_order ?? 9999))
+          .map((ans: any) => ({
+            questionId: ans.question_id,
+            selectedOption: ans.selected_option_text || '',
+            correctOption: ans.correct_option_text || '',
+            displayOrder: ans.display_order,
+          }));
 
         batch[result.id] = perAnswer;
       }
