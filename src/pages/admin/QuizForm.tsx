@@ -432,6 +432,21 @@ const QuizForm: React.FC<QuizFormProps> = ({ editMode }) => {
     }));
   };
 
+  const handleTestCaseParameterChange = (testCaseId: string, paramIndex: number, value: string) => {
+    setNewCodingQuestion(prev => {
+      const updatedTestCases = prev.testCases?.map(testCase => {
+        if (testCase.id === testCaseId) {
+          const inputObj = testCase.input ? JSON.parse(testCase.input) : {};
+          inputObj[`param${paramIndex + 1}`] = value;
+          return { ...testCase, input: JSON.stringify(inputObj) };
+        }
+        return testCase;
+      }) || [];
+
+      return { ...prev, testCases: updatedTestCases };
+    });
+  };
+
   const generateDriverCode = () => {
     const driverCode: { cCode: string, cppCode: string } = {
       cCode: `#include <stdio.h>
