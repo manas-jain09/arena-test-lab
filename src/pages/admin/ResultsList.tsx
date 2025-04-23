@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -39,8 +38,9 @@ const ResultsList = () => {
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
+  const [answerDetails, setAnswerDetails] = useState<Record<string, any[]>>({}); // { [resultId]: [{question, selectedOption, correctOption}] }
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
 
-  // Fetch quizzes created by the current user
   const { data: quizzes = [] } = useQuery({
     queryKey: ['quizzes', user?.id],
     queryFn: async () => {
@@ -54,7 +54,6 @@ const ResultsList = () => {
       
       if (error) throw error;
 
-      // Transform data to match our Quiz type
       return data.map(quiz => ({
         id: quiz.id,
         title: quiz.title,
@@ -72,13 +71,11 @@ const ResultsList = () => {
     enabled: !!user
   });
 
-  // Fetch results for quizzes created by the current user
   const { data: results = [], isLoading } = useQuery({
     queryKey: ['student_results', selectedQuiz, user?.id],
     queryFn: async () => {
       if (!user) return [];
 
-      // First get all quizzes created by the user
       const { data: userQuizzes, error: userQuizzesError } = await supabase
         .from('quizzes')
         .select('id')
@@ -88,17 +85,14 @@ const ResultsList = () => {
       
       if (userQuizzes.length === 0) return [];
       
-      // Get the quiz IDs the user has created
       const userQuizIds = userQuizzes.map(quiz => quiz.id);
       
-      // Build the query for results
       let query = supabase
         .from('student_results')
         .select('*')
         .in('quiz_id', userQuizIds)
         .order('submitted_at', { ascending: false });
 
-      // Apply specific quiz filter if selected
       if (selectedQuiz && selectedQuiz !== 'all') {
         query = query.eq('quiz_id', selectedQuiz);
       }
@@ -107,7 +101,6 @@ const ResultsList = () => {
       
       if (error) throw error;
 
-      // Transform data to match our StudentResult type
       return data.map(result => ({
         id: result.id,
         quizId: result.quiz_id,
@@ -125,6 +118,63 @@ const ResultsList = () => {
     enabled: !!user
   });
 
+  useEffect(() => {
+    if (!filteredResults.length) {
+      setAnswerDetails({});
+      return;
+    }
+
+    const fetchAllAnswers = async () => {
+      setLoadingAnswers(true);
+      const batch: Record<string, any[]> = {};
+
+      for (const result of filteredResults) {
+        const { data: sa, error: saError } = await supabase
+          .from('student_answers')
+          .select('*')
+          .eq('student_result_id', result.id);
+
+        if (saError || !sa) continue;
+
+        const perAnswer: any[] = [];
+
+        for (const ans of sa) {
+          let selectedOptionText = '';
+          if (ans.selected_option_id) {
+            const { data: so, error: soError } = await supabase
+              .from('options')
+              .select('text')
+              .eq('id', ans.selected_option_id)
+              .maybeSingle();
+            if (!soError && so?.text) selectedOptionText = so.text;
+          }
+
+          let correctOptionText = '';
+          {
+            const { data: co, error: coError } = await supabase
+              .from('options')
+              .select('text')
+              .eq('question_id', ans.question_id)
+              .eq('is_correct', true)
+              .maybeSingle();
+            if (!coError && co?.text) correctOptionText = co.text;
+          }
+
+          perAnswer.push({
+            questionId: ans.question_id,
+            selectedOption: selectedOptionText,
+            correctOption: correctOptionText,
+          });
+        }
+        batch[result.id] = perAnswer;
+      }
+      setAnswerDetails(batch);
+      setLoadingAnswers(false);
+    };
+
+    fetchAllAnswers();
+  }, [filteredResults]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -136,7 +186,6 @@ const ResultsList = () => {
     });
   };
 
-  // Generate and download CSV report
   const handleExportCsv = async () => {
     if (!selectedQuiz || selectedQuiz === 'all') {
       toast({
@@ -147,7 +196,6 @@ const ResultsList = () => {
       return;
     }
 
-    // Verify the quiz belongs to the current user
     if (!user) {
       toast({
         title: 'Error',
@@ -174,28 +222,25 @@ const ResultsList = () => {
         description: 'Please wait while we generate your CSV report...',
       });
 
-      // Use the filtered results directly from the state
       const dataToExport = filteredResults;
 
-      // Prepare filters to send to the edge function, including current UI filters
       const filters = {
         batch: selectedBatch === 'all' ? null : selectedBatch,
         year: selectedYear === 'all' ? null : selectedYear,
         searchTerm: searchTerm || null,
         sortBy: sortBy || null,
         sortOrder,
-        userId: user.id // Pass the user ID to verify ownership in the edge function
+        userId: user.id
       };
 
       console.log('Sending export request with filters:', filters);
       console.log('Exporting data:', dataToExport);
 
-      // Call the Supabase function to generate CSV with the already filtered data
       const { data, error } = await supabase.functions.invoke('generate-quiz-pdf', {
         body: { 
           quizId: selectedQuiz,
           filters,
-          filteredResults: dataToExport // Pass the already filtered data
+          filteredResults: dataToExport
         }
       });
 
@@ -205,7 +250,6 @@ const ResultsList = () => {
       }
 
       if (data && data.csvUrl) {
-        // Create a link element to trigger the download
         const link = document.createElement('a');
         link.href = data.csvUrl;
         link.setAttribute('download', `quiz-results-${selectedQuiz}.csv`);
@@ -232,7 +276,6 @@ const ResultsList = () => {
     }
   };
 
-  // Filter and sort the results
   let filteredResults = [...results];
 
   if (selectedBatch && selectedBatch !== 'all') {
@@ -439,6 +482,8 @@ const ResultsList = () => {
                         <TableHead className="text-right">Marks</TableHead>
                         <TableHead className="text-right">Percentage</TableHead>
                         <TableHead>Submitted At</TableHead>
+                        <TableHead>Selected Option(s)</TableHead>
+                        <TableHead>Correct Option(s)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -470,11 +515,47 @@ const ResultsList = () => {
                               {((result.marksScored / result.totalMarks) * 100).toFixed(2)}%
                             </TableCell>
                             <TableCell>{formatDate(result.submittedAt)}</TableCell>
+                            <TableCell>
+                              {loadingAnswers
+                                ? <span className="text-xs text-gray-500">Loading...</span>
+                                : (
+                                  <ul className="text-xs text-gray-800 space-y-1">
+                                    {(answerDetails[result.id] || []).map((a, i) => (
+                                      <li key={a.questionId || i}>
+                                        {a.selectedOption ? (
+                                          <span>{a.selectedOption}</span>
+                                        ) : (
+                                          <span className="text-gray-400">Not Answered</span>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )
+                              }
+                            </TableCell>
+                            <TableCell>
+                              {loadingAnswers
+                                ? <span className="text-xs text-gray-500">Loading...</span>
+                                : (
+                                  <ul className="text-xs text-gray-800 space-y-1">
+                                    {(answerDetails[result.id] || []).map((a, i) => (
+                                      <li key={a.questionId || i}>
+                                        {a.correctOption ? (
+                                          <span>{a.correctOption}</span>
+                                        ) : (
+                                          <span className="text-gray-400">N/A</span>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )
+                              }
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center py-6 text-gray-500">
+                          <TableCell colSpan={11} className="text-center py-6 text-gray-500">
                             No results found
                           </TableCell>
                         </TableRow>
